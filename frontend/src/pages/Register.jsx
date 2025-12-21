@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getDashboardRoute } from '../utils/routes.js';
 
 export default function Register() {
   const { register, loading } = useAuth();
@@ -20,9 +21,11 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await register(form);
+      const data = await register(form);
       toast.success('Account created');
-      navigate(`/dashboard/${form.role}`);
+      const role = data?.user?.role || form.role;
+      const dashboardRoute = getDashboardRoute(role);
+      navigate(dashboardRoute);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     }

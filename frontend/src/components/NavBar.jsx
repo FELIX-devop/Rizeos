@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { Sun, Moon, User } from 'lucide-react';
+import { getDashboardRoute } from '../utils/routes.js';
 
 export default function NavBar() {
   const { user, logout } = useAuth();
@@ -19,11 +20,11 @@ export default function NavBar() {
 
   const goProfile = () => {
     if (!user) return;
+    const baseRoute = getDashboardRoute(user.role);
+    // Use dedicated profile route for recruiter, fallback to base route for others
     const target = user.role === 'recruiter'
-      ? '/dashboard?tab=profile'
-      : user.role === 'admin'
-        ? '/dashboard/admin'
-        : '/dashboard/seeker?tab=profile';
+      ? `${baseRoute}/profile`
+      : baseRoute;
     navigate(target);
     setMenuOpen(false);
   };

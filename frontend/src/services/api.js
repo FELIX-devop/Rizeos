@@ -58,6 +58,16 @@ export const adminDashboard = async (token) => {
   return data.data;
 };
 
+export const getUserProfile = async (token, userId) => {
+  const { data } = await client.get(`/admin/users/${userId}`, { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const getJobProfile = async (token, jobId) => {
+  const { data } = await client.get(`/admin/jobs/${jobId}`, { headers: authHeaders(token) });
+  return data.data;
+};
+
 export const listUsers = async (token, params = {}) => {
   const { data } = await client.get('/users', { params, headers: authHeaders(token) });
   return data.data;
@@ -65,6 +75,39 @@ export const listUsers = async (token, params = {}) => {
 
 export const applyJob = async (token, jobId) => {
   const { data } = await client.post(`/jobs/${jobId}/apply`, {}, { headers: authHeaders(token) });
+  return data.data;
+};
+
+// Message APIs
+export const sendMessage = async (token, message, toUserId, toRole) => {
+  const payload = { message, toUserId, toRole };
+  const { data } = await client.post('/messages/send', payload, { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const getAdminInbox = async (token) => {
+  const { data } = await client.get('/admin/messages/inbox', { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const getUnreadCount = async (token) => {
+  const { data } = await client.get('/admin/messages/unread-count', { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const markMessageAsRead = async (token, messageId) => {
+  const { data } = await client.put(`/messages/${messageId}/read`, {}, { headers: authHeaders(token) });
+  return data.data;
+};
+
+// Recruiter inbox APIs
+export const getRecruiterInbox = async (token) => {
+  const { data } = await client.get('/messages/recruiter/inbox', { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const getRecruiterUnreadCount = async (token) => {
+  const { data } = await client.get('/messages/recruiter/unread-count', { headers: authHeaders(token) });
   return data.data;
 };
 

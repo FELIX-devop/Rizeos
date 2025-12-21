@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { listJobs, updateProfile, getProfile, applyJob, extractSkillsFromResume, matchScore } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from 'sonner';
@@ -194,6 +195,7 @@ export default function SeekerDashboard() {
     <div className="space-y-4">
       <div className="flex gap-3">
         <button className={`px-4 py-2 rounded-lg border border-white/20 ${activeTab === 'jobs' ? 'bg-white/10' : ''}`} onClick={() => setActiveTab('jobs')}>Jobs</button>
+        <button className={`px-4 py-2 rounded-lg border border-white/20 ${activeTab === 'messages' ? 'bg-white/10' : ''}`} onClick={() => setActiveTab('messages')}>Messages</button>
       </div>
 
       {activeTab === 'jobs' && (
@@ -238,6 +240,38 @@ export default function SeekerDashboard() {
             {jobsLoading && <p className="text-white/60 text-sm">Loading jobs…</p>}
           </div>
         </>
+      )}
+
+      {activeTab === 'messages' && (
+        <div className="glass rounded-2xl p-6">
+          <h2 className="text-xl font-semibold mb-4">Messages</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Link to="/dashboard/job-seeker/messages/send">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="glass rounded-xl p-6 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-white/10 hover:border-white/20 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="text-4xl">📤</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold mb-1">Send Message</h3>
+                    <p className="text-sm text-white/70">Send a message to a recruiter</p>
+                  </div>
+                </div>
+              </motion.div>
+            </Link>
+            <div className="glass rounded-xl p-6 bg-gradient-to-br from-gray-500/20 to-gray-600/20 border border-white/10 opacity-50">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">📥</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-1">Inbox</h3>
+                  <p className="text-sm text-white/70">Coming soon</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {activeTab === 'profile' && (

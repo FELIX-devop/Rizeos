@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getDashboardRoute } from '../utils/routes.js';
 
 export default function Login() {
   const { login, loading, user } = useAuth();
@@ -16,10 +17,8 @@ export default function Login() {
       const data = await login(email, password);
       toast.success('Logged in');
       const role = data?.user?.role || user?.role;
-      if (role === 'recruiter') navigate('/dashboard');
-      else if (role === 'admin') navigate('/dashboard/admin');
-      else if (role === 'seeker') navigate('/dashboard/seeker');
-      else navigate('/');
+      const dashboardRoute = getDashboardRoute(role);
+      navigate(dashboardRoute);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     }

@@ -7,12 +7,22 @@ import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
+import AdminUserProfile from './pages/AdminUserProfile.jsx';
+import AdminJobProfile from './pages/AdminJobProfile.jsx';
 import SeekerDashboard from './pages/SeekerDashboard.jsx';
-import DashboardLayout from './pages/recruiter/DashboardLayout.jsx';
-import DashboardOverview from './pages/recruiter/DashboardOverview.jsx';
-import DashboardJobs from './pages/recruiter/DashboardJobs.jsx';
-import DashboardPostJob from './pages/recruiter/DashboardPostJob.jsx';
-import DashboardJobSeekers from './pages/recruiter/DashboardJobSeekers.jsx';
+import SeekerMessagesHub from './pages/seeker/SeekerMessagesHub.jsx';
+import SendMessageToRecruiterPage from './pages/seeker/SendMessageToRecruiterPage.jsx';
+import SeekerInboxPage from './pages/seeker/SeekerInboxPage.jsx';
+import RecruiterDashboardLayout from './pages/recruiter/RecruiterDashboardLayout.jsx';
+import Overview from './pages/recruiter/Overview.jsx';
+import PostJobPage from './pages/recruiter/PostJobPage.jsx';
+import JobsPage from './pages/recruiter/JobsPage.jsx';
+import JobSeekersPage from './pages/recruiter/JobSeekersPage.jsx';
+import PaymentsPage from './pages/recruiter/PaymentsPage.jsx';
+import RecruiterMessagesHub from './pages/recruiter/RecruiterMessagesHub.jsx';
+import SendMessageToAdminPage from './pages/recruiter/SendMessageToAdminPage.jsx';
+import RecruiterInboxPage from './pages/recruiter/RecruiterInboxPage.jsx';
+import ProfilePage from './pages/recruiter/ProfilePage.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { fetchConfig } from './services/api.js';
 
@@ -29,24 +39,30 @@ export default function App() {
       <NavBar />
       <main className="pt-20 min-h-screen max-w-6xl mx-auto px-4">
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Home config={publicConfig} />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
+          {/* Role-Based Dashboard Routes */}
           <Route
-            path="/dashboard"
+            path="/dashboard/recruiter"
             element={
               <ProtectedRoute roles={['recruiter']}>
-                <DashboardLayout config={publicConfig} />
+                <RecruiterDashboardLayout />
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardOverview />} />
-            <Route path="jobs" element={<DashboardJobs />} />
-            <Route path="post-job" element={<DashboardPostJob />} />
-            <Route path="job-seekers" element={<DashboardJobSeekers />} />
+            <Route index element={<Overview />} />
+            <Route path="post-job" element={<PostJobPage config={publicConfig} />} />
+            <Route path="jobs" element={<JobsPage />} />
+            <Route path="job-seekers" element={<JobSeekersPage />} />
+            <Route path="payments" element={<PaymentsPage config={publicConfig} />} />
+            <Route path="messages" element={<RecruiterMessagesHub />} />
+            <Route path="messages/send" element={<SendMessageToAdminPage />} />
+            <Route path="messages/inbox" element={<RecruiterInboxPage />} />
+            <Route path="profile" element={<ProfilePage />} />
           </Route>
-          {/* Backward compatibility for legacy recruiter path */}
-          <Route path="/dashboard/recruiter" element={<Navigate to="/dashboard/post-job" replace />} />
           <Route
             path="/dashboard/admin"
             element={
@@ -56,13 +72,57 @@ export default function App() {
             }
           />
           <Route
-            path="/dashboard/seeker"
+            path="/dashboard/admin/users/:userId"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminUserProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/admin/jobs/:jobId"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminJobProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker"
             element={
               <ProtectedRoute roles={['seeker']}>
                 <SeekerDashboard />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/dashboard/job-seeker/messages"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <SeekerMessagesHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker/messages/send"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <SendMessageToRecruiterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker/messages/inbox"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <SeekerInboxPage />
+              </ProtectedRoute>
+            }
+          />
+          
+          {/* Redirect old routes to new structure */}
+          <Route path="/dashboard" element={<Navigate to="/dashboard/recruiter" replace />} />
+          <Route path="/dashboard/seeker" element={<Navigate to="/dashboard/job-seeker" replace />} />
         </Routes>
         {!user && <p className="text-sm text-white/60 mt-6">Tip: register as recruiter to test payments and job posts.</p>}
       </main>

@@ -16,12 +16,13 @@ import (
 
 // Deps holds service dependencies for easier testing.
 type Deps struct {
-	UserSvc    *services.UserService
-	JobSvc     *services.JobService
-	PaymentSvc *services.PaymentService
-	AISvc      *services.AIService
-	UserCol    *mongo.Collection
-	JobCol     *mongo.Collection
+	UserSvc     *services.UserService
+	JobSvc      *services.JobService
+	PaymentSvc  *services.PaymentService
+	AISvc       *services.AIService
+	MessageSvc  *services.MessageService
+	UserCol     *mongo.Collection
+	JobCol      *mongo.Collection
 }
 
 // DefaultDeps builds services from a mongo database.
@@ -31,6 +32,7 @@ func DefaultDeps(cfg config.Config, db *mongo.Database) Deps {
 		JobSvc:     services.NewJobService(db),
 		PaymentSvc: services.NewPaymentService(db),
 		AISvc:      services.NewAIService(cfg.AIServiceURL),
+		MessageSvc: services.NewMessageService(db),
 		UserCol:    db.Collection("users"),
 		JobCol:     db.Collection("jobs"),
 	}
@@ -57,10 +59,11 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	profileCtrl := &controllers.ProfileController{UserService: deps.UserSvc, AIService: deps.AISvc}
 	jobCtrl := &controllers.JobController{JobService: deps.JobSvc, PaymentService: deps.PaymentSvc, AIService: deps.AISvc, UserService: deps.UserSvc, PlatformFeeMatic: cfg.PlatformFeeMatic}
 	paymentCtrl := &controllers.PaymentController{Service: deps.PaymentSvc, Cfg: cfg}
-	adminCtrl := &controllers.AdminController{PaymentService: deps.PaymentSvc, UserCol: deps.UserCol, JobCol: deps.JobCol}
+	adminCtrl := &controllers.AdminController{PaymentService: deps.PaymentSvc, UserService: deps.UserSvc, JobService: deps.JobSvc, UserCol: deps.UserCol, JobCol: deps.JobCol}
 	configCtrl := &controllers.ConfigController{Cfg: cfg}
 	userCtrl := &controllers.UserController{UserService: deps.UserSvc}
 	aiCtrl := &controllers.AIController{JobService: deps.JobSvc, UserService: deps.UserSvc, AIService: deps.AISvc}
+	messageCtrl := &controllers.MessageController{MessageService: deps.MessageSvc, UserService: deps.UserSvc}
 
 	router.GET("/api/health", func(c *gin.Context) { utils.JSON(c, http.StatusOK, gin.H{"status": "ok"}) })
 	router.GET("/api/config/public", configCtrl.Public)
@@ -83,6 +86,9 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 		auth.POST("/ai/extract-skills", aiCtrl.ExtractSkills)
 		auth.GET("/ai/recommend/jobs", aiCtrl.RecommendJobs)
 		auth.GET("/ai/recommend/candidates", aiCtrl.RecommendCandidates)
+
+		// Messages: Any role can send messages (with role validation)
+		auth.POST("/messages/send", messageCtrl.Send)
 	}
 
 	router.GET("/api/jobs", middleware.OptionalAuth(cfg), jobCtrl.List)
@@ -90,11 +96,21 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	admin := router.Group("/api/admin")
 	admin.Use(middleware.AuthMiddleware(cfg), middleware.AdminOnly())
 	admin.GET("/dashboard", adminCtrl.Dashboard)
+	admin.GET("/users/:userId", adminCtrl.GetUserProfile)
+	admin.GET("/jobs/:jobId", adminCtrl.GetJobProfile)
+	admin.GET("/messages/inbox", messageCtrl.AdminInbox)
+	admin.GET("/messages/unread-count", messageCtrl.GetUnreadCount)
+	admin.PUT("/messages/:id/read", messageCtrl.MarkAsRead)
 
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware(cfg))
 	{
 		api.GET("/users", userCtrl.List) // filtered user list (e.g., seekers)
+
+		// Messages: Recruiter inbox for seeker messages
+		api.GET("/messages/recruiter/inbox", middleware.RecruiterOnly(), messageCtrl.RecruiterInbox)
+		api.GET("/messages/recruiter/unread-count", middleware.RecruiterOnly(), messageCtrl.GetRecruiterUnreadCount)
+		api.PUT("/messages/:id/read", messageCtrl.MarkAsRead) // Shared endpoint for all roles
 	}
 
 	return router

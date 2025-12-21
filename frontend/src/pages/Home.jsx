@@ -76,15 +76,13 @@ export default function Home({ config }) {
             <div className="glass rounded-2xl p-4 space-y-3">
               <p className="text-sm text-white/70">Quick actions</p>
               <div className="flex flex-wrap gap-3">
-                <Link to="/dashboard/post-job" className="btn-primary">Post Job</Link>
-                <Link to="/dashboard/jobs" className="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Jobs</Link>
-                <Link to="/dashboard/job-seekers" className="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Job Seekers</Link>
+                <Link to="/dashboard/recruiter" className="btn-primary">Go to Dashboard</Link>
               </div>
             </div>
             <div className="glass rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm text-white/70">Recent Payments</p>
-                <Link to="/dashboard" className="text-xs text-secondary hover:underline">Go to dashboard</Link>
+                <Link to="/dashboard/recruiter" className="text-xs text-secondary hover:underline">Go to dashboard</Link>
               </div>
               <div className="space-y-2 max-h-48 overflow-auto">
                 {(payments || []).map((p) => (
