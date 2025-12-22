@@ -1,23 +1,17 @@
 #!/bin/bash
 set -e
 
-# Force output to be unbuffered so logs appear immediately
+# Force unbuffered output
 export PYTHONUNBUFFERED=1
 
-echo "=== AI Service Startup Script ===" >&2
+# Print startup info to stderr (Railway captures this)
+echo "=== AI Service Starting ===" >&2
 echo "PORT: $PORT" >&2
-echo "MODEL_NAME: $MODEL_NAME" >&2
-echo "SPACY_MODEL: $SPACY_MODEL" >&2
-echo "Current directory: $(pwd)" >&2
-echo "Python version:" >&2
-python --version >&2
-echo "Activating virtual environment..." >&2
-source /opt/venv/bin/activate
-echo "Virtual environment activated" >&2
-echo "Python path: $(which python)" >&2
-echo "Checking app import..." >&2
-python -c "import app.main; print('✅ App import successful!')" >&2
+echo "Working directory: $(pwd)" >&2
+echo "Python: $(python --version 2>&1)" >&2
+echo "Uvicorn path: $(which uvicorn 2>&1 || echo '/opt/venv/bin/uvicorn')" >&2
 echo "Starting uvicorn..." >&2
-echo "=================================" >&2
-exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info
+
+# Start uvicorn
+exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
