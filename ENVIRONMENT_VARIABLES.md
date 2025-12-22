@@ -11,7 +11,9 @@ Quick reference for all environment variables needed for deployment.
 PORT=8080
 
 # Database
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/rizeos?retryWrites=true&w=majority
+# ⚠️ IMPORTANT: Password must be URL-encoded if it contains special characters
+# Example: Qwertyuiop@123# → Qwertyuiop%40123%23
+MONGO_URI=mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority
 
 # Security
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars-change-this-in-production

@@ -1,0 +1,21 @@
+# Railway Backend Environment Variables
+# Copy and paste these into Railway → Variables tab
+
+PORT=8080
+
+MONGO_URI=mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority
+
+JWT_SECRET=CHANGE_THIS_TO_SECURE_RANDOM_STRING_MIN_32_CHARS
+
+ADMIN_WALLET_ADDRESS=0xYOUR_ADMIN_WALLET_ADDRESS
+
+POLYGON_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+
+PLATFORM_FEE_MATIC=0.1
+
+ADMIN_SIGNUP_CODE=your-admin-secret-code
+
+CORS_ALLOWED_ORIGINS=https://your-app.vercel.app
+
+AI_SERVICE_URL=https://your-ai-service.railway.app
+
