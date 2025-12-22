@@ -545,38 +545,82 @@ def match(req: MatchRequest):
     - Extra skills NEVER penalize
     - Only required skills are considered for base score
     """
-    embedder = get_embedder()
-    embeddings = embedder.encode([req.job_description, req.candidate_bio])
-    job_vec, cand_vec = embeddings[0], embeddings[1]
-    cos = float(np.dot(job_vec, cand_vec) / (np.linalg.norm(job_vec) * np.linalg.norm(cand_vec)))
-    embed_score = (cos + 1) / 2  # Normalize to 0..1
+    try:
+        # Validate inputs
+        if not req.job_description or not req.job_description.strip():
+            raise HTTPException(status_code=400, detail="job_description is required and cannot be empty")
+        if not req.candidate_bio or not req.candidate_bio.strip():
+            raise HTTPException(status_code=400, detail="candidate_bio is required and cannot be empty")
+        
+        embedder = get_embedder()
+        
+        # Encode job description and candidate bio
+        try:
+            embeddings = embedder.encode([req.job_description, req.candidate_bio])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to encode text: {str(e)}")
+        
+        if len(embeddings) != 2:
+            raise HTTPException(status_code=500, detail="Embedding failed: expected 2 vectors")
+        
+        job_vec, cand_vec = embeddings[0], embeddings[1]
+        
+        # Calculate cosine similarity
+        try:
+            dot_product = np.dot(job_vec, cand_vec)
+            job_norm = np.linalg.norm(job_vec)
+            cand_norm = np.linalg.norm(cand_vec)
+            
+            if job_norm == 0 or cand_norm == 0:
+                # Handle zero vectors (empty or whitespace-only text)
+                cos = 0.0
+            else:
+                cos = float(dot_product / (job_norm * cand_norm))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to calculate cosine similarity: {str(e)}")
+        
+        embed_score = (cos + 1) / 2  # Normalize to 0..1
 
-    # Calculate skill score using REQUIRED SKILL COVERAGE (not Jaccard)
-    skill_score = 0.0
-    if req.job_skills and req.candidate_skills:
-        skill_score = _required_skill_coverage(req.job_skills, req.candidate_skills)
+        # Calculate skill score using REQUIRED SKILL COVERAGE (not Jaccard)
+        skill_score = 0.0
+        if req.job_skills and req.candidate_skills:
+            try:
+                skill_score = _required_skill_coverage(req.job_skills, req.candidate_skills)
+            except Exception as e:
+                # If skill coverage calculation fails, log but continue with 0.0
+                print(f"Warning: Skill coverage calculation failed: {e}")
+                skill_score = 0.0
 
-    # Apply semantic threshold penalty for completely unrelated profiles
-    # Penalties help identify domain mismatches and unrelated profiles
-    original_embed_score = embed_score
-    if embed_score < 0.35:
-        # Very low semantic (< 0.35): aggressive penalty for completely unrelated
-        embed_score = embed_score * 0.15  # Reduce by 85%
-    elif embed_score < 0.45:
-        # Low semantic (0.35-0.45): strong penalty for domain mismatches
-        embed_score = embed_score * 0.5  # Reduce by 50%
-    elif embed_score < 0.55 and skill_score < 0.3:
-        # Medium-low semantic with low skill coverage: likely domain mismatch
-        embed_score = embed_score * 0.75  # Reduce by 25%
+        # Apply semantic threshold penalty for completely unrelated profiles
+        # Penalties help identify domain mismatches and unrelated profiles
+        if embed_score < 0.35:
+            # Very low semantic (< 0.35): aggressive penalty for completely unrelated
+            embed_score = embed_score * 0.15  # Reduce by 85%
+        elif embed_score < 0.45:
+            # Low semantic (0.35-0.45): strong penalty for domain mismatches
+            embed_score = embed_score * 0.5  # Reduce by 50%
+        elif embed_score < 0.55 and skill_score < 0.3:
+            # Medium-low semantic with low skill coverage: likely domain mismatch
+            embed_score = embed_score * 0.75  # Reduce by 25%
 
-    # Hybrid weight: 70% semantic similarity, 30% skill coverage
-    # This ensures semantic understanding dominates, while skill coverage provides precision
-    hybrid = 0.7 * embed_score + 0.3 * skill_score
+        # Hybrid weight: 70% semantic similarity, 30% skill coverage
+        # This ensures semantic understanding dominates, while skill coverage provides precision
+        hybrid = 0.7 * embed_score + 0.3 * skill_score
+        
+        # Convert to percentage and clamp to 0-100
+        normalized = round(hybrid * 100, 2)
+        normalized = max(0.0, min(100.0, normalized))
+        return {"score": normalized}
     
-    # Convert to percentage and clamp to 0-100
-    normalized = round(hybrid * 100, 2)
-    normalized = max(0.0, min(100.0, normalized))
-    return {"score": normalized}
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Catch any other unexpected errors
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Unexpected error in match endpoint: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.post("/recommendations/recruiter")
