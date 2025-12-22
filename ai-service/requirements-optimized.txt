@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+spacy==3.7.4
+sentence-transformers==2.6.1
+# Use CPU-only torch to reduce size (8.5GB -> ~2GB)
+torch==2.1.0+cpu --index-url https://download.pytorch.org/whl/cpu
+scikit-learn==1.4.2
+numpy==1.26.4
+PyPDF2==3.0.1
+pydantic>=2.0.0,<3.0.0
+typing-extensions>=4.8.0
+requests==2.31.0
+
