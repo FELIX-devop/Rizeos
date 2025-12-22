@@ -47,7 +47,16 @@ def get_nlp():
 def get_embedder():
     global embedder
     if embedder is None:
-        embedder = SentenceTransformer(MODEL_NAME)
+        try:
+            # Explicitly set device to CPU for Railway deployment
+            # This prevents meta tensor issues
+            import torch
+            device = 'cpu'  # Force CPU for Railway
+            embedder = SentenceTransformer(MODEL_NAME, device=device)
+            # Test the model with a dummy encoding to ensure it's fully loaded
+            _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load SentenceTransformer model: {str(e)}")
     return embedder
 
 
@@ -555,9 +564,18 @@ def match(req: MatchRequest):
         embedder = get_embedder()
         
         # Encode job description and candidate bio
+        # Use convert_to_numpy=True to ensure we get numpy arrays, not PyTorch tensors
         try:
-            embeddings = embedder.encode([req.job_description, req.candidate_bio])
+            embeddings = embedder.encode(
+                [req.job_description, req.candidate_bio],
+                convert_to_numpy=True,
+                show_progress_bar=False,
+                normalize_embeddings=False
+            )
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Encoding error: {error_details}")
             raise HTTPException(status_code=500, detail=f"Failed to encode text: {str(e)}")
         
         if len(embeddings) != 2:
