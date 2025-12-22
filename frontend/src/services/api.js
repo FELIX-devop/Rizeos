@@ -218,6 +218,24 @@ export const listAnnouncements = async (token) => {
 // Optional helper to call AI service directly for resume skill extraction.
 export const extractSkillsFromResume = async (base64Content) => {
   const aiBase = import.meta.env.VITE_AI_URL || 'http://localhost:8000';
+  
+  // First verify the service is accessible
+  try {
+    const healthCheck = await fetch(`${aiBase}/`, { method: 'GET', mode: 'cors' });
+    if (!healthCheck.ok && healthCheck.status === 404) {
+      const errorText = await healthCheck.text();
+      if (errorText.includes('Application not found')) {
+        throw new Error(`AI service not found at ${aiBase}. Please check Railway dashboard for the correct URL.`);
+      }
+    }
+  } catch (err) {
+    if (err.message.includes('AI service not found')) {
+      throw err;
+    }
+    // Network error - continue to try the actual request
+    console.warn('Health check failed, but continuing:', err);
+  }
+  
   const resp = await fetch(`${aiBase}/skills/extract`, {
     method: 'POST',
     mode: 'cors',
@@ -226,7 +244,20 @@ export const extractSkillsFromResume = async (base64Content) => {
   });
   if (!resp.ok) {
     const text = await resp.text();
-    throw new Error(text || `AI service error ${resp.status}`);
+    let errorMsg = text || `AI service error ${resp.status}`;
+    
+    // Provide helpful error messages
+    if (resp.status === 404) {
+      if (text.includes('Application not found')) {
+        errorMsg = `AI service URL is incorrect or service is not deployed. Current URL: ${aiBase}. Please check Railway dashboard.`;
+      } else {
+        errorMsg = `AI service endpoint not found. Check if service is running at ${aiBase}`;
+      }
+    } else if (resp.status === 0 || text.includes('Failed to fetch')) {
+      errorMsg = `Cannot connect to AI service at ${aiBase}. Check if the service is running and CORS is configured.`;
+    }
+    
+    throw new Error(errorMsg);
   }
   const json = await resp.json();
   return json.extractedSkills || json.skills || json.data?.skills || [];
