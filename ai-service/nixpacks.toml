@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = ["python3", "gcc"]
+
+[phases.install]
+cmds = [
+  "python -m venv --copies /opt/venv",
+  ". /opt/venv/bin/activate && pip install --upgrade pip",
+  ". /opt/venv/bin/activate && pip install -r requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  ". /opt/venv/bin/activate && pip install -r requirements.txt",
+  ". /opt/venv/bin/activate && python -m spacy download en_core_web_sm"
+]
+
+[start]
+cmd = ". /opt/venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+
