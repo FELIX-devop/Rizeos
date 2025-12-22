@@ -75,7 +75,16 @@ export default function PremiumPaymentButton({ adminWallet, platformFee, onVerif
 
       const signer = await provider.getSigner();
       const sender = (await signer.getAddress()).toLowerCase();
-      const recipient = adminWallet.toLowerCase();
+      
+      // Normalize and validate the recipient address
+      let recipient;
+      try {
+        recipient = ethers.getAddress(adminWallet).toLowerCase();
+      } catch (err) {
+        toast.error('Invalid admin wallet address format.');
+        setLoading(false);
+        return;
+      }
 
       if (sender === recipient) {
         toast.error('Select a different account to send from; admin wallet is the recipient.');
@@ -92,8 +101,9 @@ export default function PremiumPaymentButton({ adminWallet, platformFee, onVerif
       }
 
       // Send transaction (MetaMask popup appears here)
+      // Use the normalized address to prevent UNCONFIGURED_NAME error
       const tx = await signer.sendTransaction({
-        to: adminWallet,
+        to: ethers.getAddress(adminWallet), // Normalize address
         value: ethers.parseEther(platformFee.toString()),
       });
       
