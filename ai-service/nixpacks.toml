@@ -9,11 +9,6 @@ cmds = [
   ". /opt/venv/bin/activate && pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl"
 ]
 
-[phases.build]
-cmds = [
-  "echo 'Build complete - all dependencies installed'"
-]
-
 [start]
-cmd = "bash -x start.sh 2>&1"
+cmd = ". /opt/venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 
