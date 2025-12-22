@@ -16,7 +16,8 @@ export default function NavBar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    // Use replace to prevent back button from accessing dashboard after logout
+    navigate('/login', { replace: true });
     setMenuOpen(false);
   };
 

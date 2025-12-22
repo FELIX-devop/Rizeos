@@ -18,7 +18,8 @@ export default function Login() {
       toast.success('Logged in');
       const role = data?.user?.role || user?.role;
       const dashboardRoute = getDashboardRoute(role);
-      navigate(dashboardRoute);
+      // Use replace to prevent back button from showing login page
+      navigate(dashboardRoute, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.error || 'Login failed');
     }

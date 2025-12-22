@@ -25,7 +25,8 @@ export default function Register() {
       toast.success('Account created');
       const role = data?.user?.role || form.role;
       const dashboardRoute = getDashboardRoute(role);
-      navigate(dashboardRoute);
+      // Use replace to prevent back button from showing register page
+      navigate(dashboardRoute, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.error || 'Registration failed');
     }

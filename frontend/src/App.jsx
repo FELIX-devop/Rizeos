@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import NavBar from './components/NavBar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import PublicRoute from './components/PublicRoute.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
@@ -44,8 +45,22 @@ export default function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Home config={publicConfig} />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            } 
+          />
           
           {/* Role-Based Dashboard Routes */}
           <Route
