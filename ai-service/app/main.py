@@ -51,31 +51,30 @@ def get_embedder():
             import torch
             import os
             
-            # Set default device to CPU before loading model
-            # This prevents meta tensor issues during model initialization
+            # Disable CUDA to force CPU usage
             os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
-            torch.set_default_device('cpu')
-            torch.set_default_dtype(torch.float32)
             
             print(f"Loading SentenceTransformer model: {MODEL_NAME}")
             print(f"PyTorch version: {torch.__version__}")
-            print(f"Default device: {torch.get_default_device()}")
             
-            # Load model with explicit CPU device and trust_remote_code if needed
-            # Use device='cpu' but ensure model weights are loaded first
-            embedder = SentenceTransformer(
-                MODEL_NAME,
-                device='cpu',
-                trust_remote_code=False
-            )
+            # Load model without device specification first to avoid meta tensor issues
+            # SentenceTransformer will automatically use CPU if CUDA is disabled
+            print("Initializing model...")
+            embedder = SentenceTransformer(MODEL_NAME)
             
-            # Force model to CPU and ensure all parameters are materialized
-            embedder.eval()  # Set to evaluation mode
-            with torch.no_grad():  # Disable gradient computation
-                # Test the model with a dummy encoding to ensure it's fully loaded
-                print("Testing model with dummy encoding...")
+            # Explicitly move to CPU after model is loaded (if not already on CPU)
+            # This ensures all tensors are materialized
+            if hasattr(embedder, 'to'):
+                embedder = embedder.to('cpu')
+            
+            # Set to evaluation mode
+            embedder.eval()
+            
+            # Test the model with a dummy encoding to ensure it's fully loaded
+            print("Testing model with dummy encoding...")
+            with torch.no_grad():
                 _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
-                print("Model loaded and tested successfully")
+            print("Model loaded and tested successfully")
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
