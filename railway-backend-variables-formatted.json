@@ -41,7 +41,7 @@
   },
   {
     "key": "AI_SERVICE_URL",
-    "value": "https://rizeos-production-7106.up.railway.app",
+    "value": "https://rizeos-production-f89d.up.railway.app",
     "description": "AI service Railway URL - update after AI service deployment"
   }
 ]
