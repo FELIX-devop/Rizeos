@@ -21,8 +21,10 @@ The password contains special characters (`#`) that must be URL-encoded for use 
 **For Railway Environment Variable (`MONGO_URI`):**
 
 ```
-mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority
+mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority&tls=true
 ```
+
+**⚠️ Important:** Added `&tls=true` to fix TLS connection errors.
 
 **Changes made:**
 1. ✅ Password URL-encoded: `Qwertyuiop@123#` → `Qwertyuiop%40123%23`
