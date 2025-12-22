@@ -16,25 +16,27 @@ import (
 
 // Deps holds service dependencies for easier testing.
 type Deps struct {
-	UserSvc     *services.UserService
-	JobSvc      *services.JobService
-	PaymentSvc  *services.PaymentService
-	AISvc       *services.AIService
-	MessageSvc  *services.MessageService
-	UserCol     *mongo.Collection
-	JobCol      *mongo.Collection
+	UserSvc          *services.UserService
+	JobSvc           *services.JobService
+	PaymentSvc       *services.PaymentService
+	AISvc            *services.AIService
+	MessageSvc        *services.MessageService
+	AnnouncementSvc  *services.AnnouncementService
+	UserCol          *mongo.Collection
+	JobCol           *mongo.Collection
 }
 
 // DefaultDeps builds services from a mongo database.
 func DefaultDeps(cfg config.Config, db *mongo.Database) Deps {
 	return Deps{
-		UserSvc:    services.NewUserService(db),
-		JobSvc:     services.NewJobService(db),
-		PaymentSvc: services.NewPaymentService(db),
-		AISvc:      services.NewAIService(cfg.AIServiceURL),
-		MessageSvc: services.NewMessageService(db),
-		UserCol:    db.Collection("users"),
-		JobCol:     db.Collection("jobs"),
+		UserSvc:         services.NewUserService(db),
+		JobSvc:          services.NewJobService(db),
+		PaymentSvc:      services.NewPaymentService(db),
+		AISvc:           services.NewAIService(cfg.AIServiceURL),
+		MessageSvc:      services.NewMessageService(db),
+		AnnouncementSvc:  services.NewAnnouncementService(db),
+		UserCol:         db.Collection("users"),
+		JobCol:          db.Collection("jobs"),
 	}
 }
 
@@ -63,7 +65,8 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	configCtrl := &controllers.ConfigController{Cfg: cfg}
 	userCtrl := &controllers.UserController{UserService: deps.UserSvc}
 	aiCtrl := &controllers.AIController{JobService: deps.JobSvc, UserService: deps.UserSvc, AIService: deps.AISvc}
-	messageCtrl := &controllers.MessageController{MessageService: deps.MessageSvc, UserService: deps.UserSvc}
+	messageCtrl := &controllers.MessageController{MessageService: deps.MessageSvc, UserService: deps.UserSvc, JobService: deps.JobSvc}
+	announcementCtrl := &controllers.AnnouncementController{AnnouncementService: deps.AnnouncementSvc, UserService: deps.UserSvc, MessageService: deps.MessageSvc}
 
 	router.GET("/api/health", func(c *gin.Context) { utils.JSON(c, http.StatusOK, gin.H{"status": "ok"}) })
 	router.GET("/api/config/public", configCtrl.Public)
@@ -92,6 +95,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	}
 
 	router.GET("/api/jobs", middleware.OptionalAuth(cfg), jobCtrl.List)
+	router.GET("/api/jobs/:id", middleware.OptionalAuth(cfg), jobCtrl.GetJobProfile)
 
 	admin := router.Group("/api/admin")
 	admin.Use(middleware.AuthMiddleware(cfg), middleware.AdminOnly())
@@ -101,16 +105,26 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	admin.GET("/messages/inbox", messageCtrl.AdminInbox)
 	admin.GET("/messages/unread-count", messageCtrl.GetUnreadCount)
 	admin.PUT("/messages/:id/read", messageCtrl.MarkAsRead)
+	admin.POST("/announcements", announcementCtrl.CreateAnnouncement)
 
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware(cfg))
 	{
 		api.GET("/users", userCtrl.List) // filtered user list (e.g., seekers)
+		api.GET("/users/:userId", userCtrl.GetUserProfilePublic) // public user profile (for job seekers viewing recruiters)
 
 		// Messages: Recruiter inbox for seeker messages
 		api.GET("/messages/recruiter/inbox", middleware.RecruiterOnly(), messageCtrl.RecruiterInbox)
 		api.GET("/messages/recruiter/unread-count", middleware.RecruiterOnly(), messageCtrl.GetRecruiterUnreadCount)
+		
+		// Messages: Job seeker inbox
+		api.GET("/messages/seeker/inbox", middleware.SeekerOnly(), messageCtrl.SeekerInbox)
+		api.GET("/messages/seeker/unread-count", middleware.SeekerOnly(), messageCtrl.GetSeekerUnreadCount)
+		
 		api.PUT("/messages/:id/read", messageCtrl.MarkAsRead) // Shared endpoint for all roles
+
+		// Announcements: Available to recruiters and job seekers
+		api.GET("/announcements", announcementCtrl.ListAnnouncements)
 	}
 
 	return router

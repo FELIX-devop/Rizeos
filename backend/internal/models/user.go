@@ -24,6 +24,14 @@ type User struct {
 	LinkedInURL   string             `bson:"linkedin_url" json:"linkedin_url"`
 	Skills        []string           `bson:"skills" json:"skills"`
 	WalletAddress string             `bson:"wallet_address" json:"wallet_address"`
+	// New optional fields for job seekers
+	PhoneNumber   string             `bson:"phone_number,omitempty" json:"phone_number,omitempty"`
+	Summary       string             `bson:"summary,omitempty" json:"summary,omitempty"`
+	Education     string             `bson:"education,omitempty" json:"education,omitempty"`
+	TenthMarks    interface{}        `bson:"tenth_marks,omitempty" json:"tenth_marks,omitempty"` // string or number
+	TwelfthMarks  interface{}        `bson:"twelfth_marks,omitempty" json:"twelfth_marks,omitempty"` // string or number
+	Experience    interface{}        `bson:"experience,omitempty" json:"experience,omitempty"` // string or number
+	IsActive      *bool              `bson:"is_active,omitempty" json:"is_active,omitempty"` // pointer to allow nil (default true)
 	CreatedAt     time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt     time.Time          `bson:"updated_at" json:"updated_at"`
 }

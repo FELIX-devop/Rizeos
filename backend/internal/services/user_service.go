@@ -51,6 +51,11 @@ func (s *UserService) Register(ctx context.Context, user models.User, password s
 		user.PasswordHash = hash
 		user.CreatedAt = time.Now()
 		user.UpdatedAt = time.Now()
+		// Default is_active to true for new users
+		if user.IsActive == nil {
+			active := true
+			user.IsActive = &active
+		}
 		userMemory.data[user.ID.Hex()] = user
 		user.PasswordHash = ""
 		return user, nil
@@ -70,6 +75,11 @@ func (s *UserService) Register(ctx context.Context, user models.User, password s
 	user.UpdatedAt = time.Now()
 	if user.Role == "" {
 		user.Role = models.RoleSeeker
+	}
+	// Default is_active to true for new users
+	if user.IsActive == nil {
+		active := true
+		user.IsActive = &active
 	}
 
 	res, err := s.col.InsertOne(ctx, user)

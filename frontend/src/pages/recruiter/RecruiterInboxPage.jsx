@@ -96,45 +96,70 @@ export default function RecruiterInboxPage() {
         )}
 
         {!loading &&
-          messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-lg border ${
-                msg.is_read
-                  ? 'bg-white/5 border-white/10'
-                  : 'bg-blue-500/10 border-blue-500/30'
-              }`}
-              onClick={() => handleMarkAsRead(msg.id, msg.is_read)}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold text-sm">
-                      {msg.from_user_name || 'Unknown Job Seeker'}
-                    </p>
-                    {!msg.is_read && (
-                      <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">
-                        New
-                      </span>
+          messages.map((msg) => {
+            const isAnnouncement = msg.message && msg.message.startsWith('[ANNOUNCEMENT]');
+            const isDirectMessage = msg.from_role === 'admin' && !isAnnouncement;
+            const displayMessage = isAnnouncement ? msg.message.replace('[ANNOUNCEMENT]', '').trim() : msg.message;
+            const hasJobContext = msg.job_id || msg.jobId;
+            
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-4 rounded-lg border ${
+                  msg.is_read
+                    ? 'bg-white/5 border-white/10'
+                    : 'bg-blue-500/10 border-blue-500/30'
+                } ${isAnnouncement ? 'border-yellow-500/30 bg-yellow-500/5' : ''} ${isDirectMessage ? 'border-purple-500/30 bg-purple-500/5' : ''}`}
+                onClick={() => handleMarkAsRead(msg.id, msg.is_read)}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {isAnnouncement && (
+                        <span className="px-2 py-0.5 bg-yellow-500 text-white text-xs rounded-full font-semibold">
+                          [ANNOUNCEMENT]
+                        </span>
+                      )}
+                      {isDirectMessage && (
+                        <span className="px-2 py-0.5 bg-purple-500 text-white text-xs rounded-full font-semibold">
+                          [DIRECT MESSAGE]
+                        </span>
+                      )}
+                      <p className="font-semibold text-sm">
+                        {isAnnouncement || isDirectMessage ? 'Admin' : (msg.from_user_name || 'Unknown Job Seeker')}
+                      </p>
+                      {!msg.is_read && (
+                        <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">
+                          New
+                        </span>
+                      )}
+                    </div>
+                    {!isAnnouncement && !isDirectMessage && (
+                      <p className="text-xs text-white/60">
+                        {msg.from_user_email || 'N/A'}
+                      </p>
+                    )}
+                    {hasJobContext && msg.job_title && (
+                      <p className="text-xs text-accent mt-1">
+                        📋 Job: {msg.job_title}
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs text-white/60">
-                    {msg.from_user_email || 'N/A'}
-                  </p>
                 </div>
-              </div>
-              <p className="text-sm text-white/80 mb-2 whitespace-pre-wrap">
-                {msg.message}
-              </p>
-              <p className="text-xs text-white/50">
-                {formatDate(msg.created_at)}
-              </p>
-            </motion.div>
-          ))}
+                <p className="text-sm text-white/80 mb-2 whitespace-pre-wrap">
+                  {displayMessage}
+                </p>
+                <p className="text-xs text-white/50">
+                  {formatDate(msg.created_at)}
+                </p>
+              </motion.div>
+            );
+          })}
       </div>
     </div>
   );
 }
+
 

@@ -122,6 +122,64 @@ func (s *MessageService) GetRecruiterInbox(ctx context.Context, recruiterID prim
 	return messages, nil
 }
 
+// GetSeekerInbox returns all messages for a specific job seeker, sorted by latest first.
+func (s *MessageService) GetSeekerInbox(ctx context.Context, seekerID primitive.ObjectID) ([]models.Message, error) {
+	if s.col == nil {
+		messageMemory.Lock()
+		defer messageMemory.Unlock()
+		messages := make([]models.Message, 0, len(messageMemory.data))
+		for _, m := range messageMemory.data {
+			if m.ToRole == models.RoleSeeker && m.ToUserID == seekerID {
+				messages = append(messages, m)
+			}
+		}
+		// Sort by CreatedAt descending (latest first)
+		for i := 0; i < len(messages)-1; i++ {
+			for j := i + 1; j < len(messages); j++ {
+				if messages[i].CreatedAt.Before(messages[j].CreatedAt) {
+					messages[i], messages[j] = messages[j], messages[i]
+				}
+			}
+		}
+		return messages, nil
+	}
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := s.col.Find(ctx, bson.M{
+		"to_role":   models.RoleSeeker,
+		"to_user_id": seekerID,
+	}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+	var messages []models.Message
+	if err := cursor.All(ctx, &messages); err != nil {
+		return nil, err
+	}
+	return messages, nil
+}
+
+// GetSeekerUnreadCount returns the count of unread messages for a job seeker.
+func (s *MessageService) GetSeekerUnreadCount(ctx context.Context, seekerID primitive.ObjectID) (int64, error) {
+	if s.col == nil {
+		messageMemory.Lock()
+		defer messageMemory.Unlock()
+		count := int64(0)
+		for _, m := range messageMemory.data {
+			if m.ToRole == models.RoleSeeker && m.ToUserID == seekerID && !m.IsRead {
+				count++
+			}
+		}
+		return count, nil
+	}
+	count, err := s.col.CountDocuments(ctx, bson.M{
+		"to_role":   models.RoleSeeker,
+		"to_user_id": seekerID,
+		"is_read":   false,
+	})
+	return count, err
+}
+
 // GetRecruiterUnreadCount returns the count of unread messages for a recruiter.
 func (s *MessageService) GetRecruiterUnreadCount(ctx context.Context, recruiterID primitive.ObjectID) (int64, error) {
 	if s.col == nil {

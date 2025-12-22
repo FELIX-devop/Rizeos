@@ -24,3 +24,4 @@ dmypy.json
 *.dylib
 *.dll
 *.so
+backend/server

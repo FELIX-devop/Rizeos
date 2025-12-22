@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"rizeos/backend/internal/models"
 	"rizeos/backend/internal/services"
 	"rizeos/backend/internal/utils"
@@ -111,26 +112,132 @@ func (j *JobController) List(c *gin.Context) {
 		return
 	}
 
+	// Enrich jobs with recruiter info and match scores
+	enrichedJobs := make([]map[string]interface{}, 0, len(jobs))
+	for _, jb := range jobs {
+		enriched := map[string]interface{}{
+			"id":          jb.ID,
+			"title":       jb.Title,
+			"description": jb.Description,
+			"skills":      jb.Skills,
+			"location":    jb.Location,
+			"tags":        jb.Tags,
+			"budget":      jb.Budget,
+			"created_at":  jb.CreatedAt,
+			"updated_at":  jb.UpdatedAt,
+			"candidates":  jb.Candidates,
+			"recruiter_id": jb.RecruiterID,
+		}
+		// Initialize match_scores as empty map if nil
+		if jb.MatchScores == nil {
+			enriched["match_scores"] = map[string]float64{}
+		} else {
+			enriched["match_scores"] = jb.MatchScores
+		}
+		// Add recruiter name
+		recruiter, err := j.UserService.FindByID(ctx, jb.RecruiterID)
+		if err == nil {
+			enriched["recruiter_name"] = recruiter.Name
+		}
+		enrichedJobs = append(enrichedJobs, enriched)
+	}
+
 	// Attach match score if seeker logged in.
 	userID, ok := c.Get("user_id")
-	if ok && j.AIService != nil {
+	role, roleOk := c.Get("role")
+	if ok && roleOk && role.(string) == models.RoleSeeker && j.AIService != nil {
 		oid, _ := primitive.ObjectIDFromHex(userID.(string))
 		user, err := j.UserService.FindByID(ctx, oid)
-		if err == nil {
-			for idx, jb := range jobs {
+		if err == nil && user.Bio != "" {
+			for idx, enriched := range enrichedJobs {
+				jb := jobs[idx]
 				score, err := j.AIService.MatchScore(ctx, jb.Description, user.Bio)
 				if err == nil {
-					if jb.MatchScores == nil {
-						jb.MatchScores = map[string]float64{}
+					scores, ok := enriched["match_scores"].(map[string]float64)
+					if !ok {
+						scores = map[string]float64{}
 					}
-					jb.MatchScores[user.ID.Hex()] = score
-					jobs[idx] = jb
+					scores[user.ID.Hex()] = score
+					enriched["match_scores"] = scores
+					enrichedJobs[idx] = enriched
 				}
 			}
 		}
 	}
 
-	utils.JSON(c, http.StatusOK, jobs)
+	utils.JSON(c, http.StatusOK, enrichedJobs)
+}
+
+// GetJobProfile returns detailed job information with recruiter info (public endpoint for job seekers).
+func (j *JobController) GetJobProfile(c *gin.Context) {
+	jobID := c.Param("id")
+	if jobID == "" {
+		utils.JSONError(c, http.StatusBadRequest, "missing job id")
+		return
+	}
+	jobOID, err := primitive.ObjectIDFromHex(jobID)
+	if err != nil {
+		utils.JSONError(c, http.StatusBadRequest, "invalid job id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	job, err := j.JobService.FindByID(ctx, jobOID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.JSONError(c, http.StatusNotFound, "job not found")
+			return
+		}
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Get recruiter information
+	var recruiter map[string]interface{}
+	recruiterUser, err := j.UserService.FindByID(ctx, job.RecruiterID)
+	if err == nil {
+		recruiter = map[string]interface{}{
+			"id":    recruiterUser.ID,
+			"name":  recruiterUser.Name,
+			"email": recruiterUser.Email,
+		}
+	} else {
+		recruiter = map[string]interface{}{
+			"id":    job.RecruiterID,
+			"name":  "Unknown",
+			"email": "N/A",
+		}
+	}
+
+	// Count applications
+	applicationsCount := len(job.Candidates)
+
+	// Determine job status (active by default)
+	jobStatus := "ACTIVE"
+
+	stats := map[string]interface{}{
+		"applications": applicationsCount,
+	}
+
+	response := gin.H{
+		"id":          job.ID,
+		"title":       job.Title,
+		"description": job.Description,
+		"skills":      job.Skills,
+		"location":    job.Location,
+		"tags":        job.Tags,
+		"budget":      job.Budget,
+		"status":      jobStatus,
+		"created_at":  job.CreatedAt,
+		"updated_at":  job.UpdatedAt,
+		"recruiter":   recruiter,
+		"stats":       stats,
+		"match_scores": job.MatchScores,
+	}
+
+	utils.JSON(c, http.StatusOK, response)
 }
 
 // Apply lets a seeker apply to a job; stores candidate id.

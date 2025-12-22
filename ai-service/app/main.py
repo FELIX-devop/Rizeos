@@ -133,8 +133,22 @@ def match(req: MatchRequest):
     if req.job_skills and req.candidate_skills:
         skill_score = _jaccard(req.job_skills, req.candidate_skills)
 
-    # Hybrid weight: 70% embeddings, 30% skill overlap
-    hybrid = 0.7 * embed_score + 0.3 * skill_score
+    # Apply semantic threshold penalty for completely unrelated profiles
+    # Penalties help identify domain mismatches and unrelated profiles
+    original_embed_score = embed_score
+    if embed_score < 0.35:
+        # Very low semantic (< 0.35): aggressive penalty for completely unrelated
+        embed_score = embed_score * 0.15  # Reduce by 85%
+    elif embed_score < 0.45:
+        # Low semantic (0.35-0.45): strong penalty for domain mismatches
+        embed_score = embed_score * 0.5  # Reduce by 50%
+    elif embed_score < 0.55 and skill_score < 0.3:
+        # Medium-low semantic with low skill overlap: likely domain mismatch
+        embed_score = embed_score * 0.75  # Reduce by 25%
+
+    # Hybrid weight: 60% embeddings, 40% skill overlap
+    # More weight to explicit skill matches helps with domain mismatches
+    hybrid = 0.6 * embed_score + 0.4 * skill_score
     normalized = round(hybrid * 100, 2)
     return {"score": normalized}
 

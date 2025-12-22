@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import SeekerProfileCard from '../../components/SeekerProfileCard.jsx';
-import { useAuth } from '../../context/AuthContext.jsx';
+import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
 
 export default function DashboardJobSeekers() {
   const {
@@ -11,7 +10,6 @@ export default function DashboardJobSeekers() {
     setSeekerQuery,
     loadSeekers,
   } = useOutletContext();
-  const { user } = useAuth();
   const [selectedSeeker, setSelectedSeeker] = React.useState(null);
 
   useEffect(() => {
@@ -52,7 +50,7 @@ export default function DashboardJobSeekers() {
         </table>
       </div>
       {selectedSeeker && (
-        <SeekerProfileCard seeker={selectedSeeker} currentUserId={user?.id} onClose={() => setSelectedSeeker(null)} />
+        <RecruiterSeekerProfile seeker={selectedSeeker} onClose={() => setSelectedSeeker(null)} />
       )}
     </div>
   );

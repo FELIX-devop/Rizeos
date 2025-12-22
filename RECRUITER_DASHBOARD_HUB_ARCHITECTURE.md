@@ -440,3 +440,4 @@ The Recruiter Dashboard now follows a **Hub Architecture** pattern:
 
 **Result:** A scalable, maintainable, and performant dashboard architecture! 🎉
 
+

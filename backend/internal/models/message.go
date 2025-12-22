@@ -10,10 +10,11 @@ import (
 type Message struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	FromUserID primitive.ObjectID `bson:"from_user_id" json:"from_user_id"`
-	FromRole   string             `bson:"from_role" json:"from_role"` // "recruiter" | "seeker"
+	FromRole   string             `bson:"from_role" json:"from_role"` // "recruiter" | "seeker" | "admin"
 	ToUserID   primitive.ObjectID `bson:"to_user_id" json:"to_user_id"`
-	ToRole     string             `bson:"to_role" json:"to_role"` // "admin" | "recruiter"
+	ToRole     string             `bson:"to_role" json:"to_role"` // "admin" | "recruiter" | "seeker"
 	Message    string             `bson:"message" json:"message"`
+	JobID      primitive.ObjectID `bson:"job_id,omitempty" json:"job_id,omitempty"` // Optional: for job-context messages
 	IsRead     bool               `bson:"is_read" json:"is_read"`
 	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
 }

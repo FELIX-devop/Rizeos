@@ -9,10 +9,12 @@ import Register from './pages/Register.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminUserProfile from './pages/AdminUserProfile.jsx';
 import AdminJobProfile from './pages/AdminJobProfile.jsx';
+import AdminProfilePage from './pages/AdminProfilePage.jsx';
 import SeekerDashboard from './pages/SeekerDashboard.jsx';
-import SeekerMessagesHub from './pages/seeker/SeekerMessagesHub.jsx';
-import SendMessageToRecruiterPage from './pages/seeker/SendMessageToRecruiterPage.jsx';
 import SeekerInboxPage from './pages/seeker/SeekerInboxPage.jsx';
+import SeekerProfilePage from './pages/seeker/SeekerProfilePage.jsx';
+import JobSeekerJobDetail from './pages/seeker/JobSeekerJobDetail.jsx';
+import JobSeekerRecruiterProfile from './pages/seeker/JobSeekerRecruiterProfile.jsx';
 import RecruiterDashboardLayout from './pages/recruiter/RecruiterDashboardLayout.jsx';
 import Overview from './pages/recruiter/Overview.jsx';
 import PostJobPage from './pages/recruiter/PostJobPage.jsx';
@@ -72,6 +74,14 @@ export default function App() {
             }
           />
           <Route
+            path="/dashboard/admin/profile"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/dashboard/admin/users/:userId"
             element={
               <ProtectedRoute roles={['admin']}>
@@ -96,26 +106,34 @@ export default function App() {
             }
           />
           <Route
-            path="/dashboard/job-seeker/messages"
-            element={
-              <ProtectedRoute roles={['seeker']}>
-                <SeekerMessagesHub />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/job-seeker/messages/send"
-            element={
-              <ProtectedRoute roles={['seeker']}>
-                <SendMessageToRecruiterPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/job-seeker/messages/inbox"
+            path="/dashboard/job-seeker/inbox"
             element={
               <ProtectedRoute roles={['seeker']}>
                 <SeekerInboxPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker/jobs/:jobId"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <JobSeekerJobDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker/recruiters/:recruiterId"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <JobSeekerRecruiterProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/job-seeker/profile"
+            element={
+              <ProtectedRoute roles={['seeker']}>
+                <SeekerProfilePage />
               </ProtectedRoute>
             }
           />
@@ -126,7 +144,7 @@ export default function App() {
         </Routes>
         {!user && <p className="text-sm text-white/60 mt-6">Tip: register as recruiter to test payments and job posts.</p>}
       </main>
-      <Toaster richColors />
+      <Toaster richColors position="top-right" expand={true} closeButton />
     </BrowserRouter>
   );
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { adminDashboard, getUnreadCount } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import AdminMessagesDrawer from '../components/AdminMessagesDrawer.jsx';
+import AdminAnnouncementModal from '../components/AdminAnnouncementModal.jsx';
 
 export default function AdminDashboard() {
   const { token } = useAuth();
@@ -10,6 +11,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState({ payments: [], total_payments_matic: 0, users: 0, jobs: 0, user_list: [], job_list: [] });
   const [activeTab, setActiveTab] = useState('payments');
   const [messagesOpen, setMessagesOpen] = useState(false);
+  const [announcementsOpen, setAnnouncementsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -33,31 +35,53 @@ export default function AdminDashboard() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-semibold">Admin overview</h2>
-        <button
-          onClick={() => setMessagesOpen(true)}
-          className="relative p-3 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
-          title="Messages"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setAnnouncementsOpen(true)}
+            className="relative p-3 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+            title="Announcements"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
-          </svg>
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          )}
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => setMessagesOpen(true)}
+            className="relative p-3 rounded-lg bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+            title="Messages"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
       <div className="grid md:grid-cols-3 gap-3">
         <MetricCard label="Total Payments" value={`${data.total_payments_matic} MATIC`} onClick={() => setActiveTab('payments')} active={activeTab === 'payments'} />
@@ -157,6 +181,11 @@ export default function AdminDashboard() {
           setMessagesOpen(false);
           loadUnreadCount(); // Refresh count when drawer closes
         }}
+      />
+
+      <AdminAnnouncementModal
+        isOpen={announcementsOpen}
+        onClose={() => setAnnouncementsOpen(false)}
       />
     </div>
   );

@@ -1,28 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import { getJobProfile } from '../services/api.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { getJobProfilePublic, applyJob } from '../../services/api.js';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 
 /**
- * AdminJobProfile
+ * JobSeekerJobDetail
  * 
- * Dedicated page for admin to inspect a specific job's details.
+ * Job detail page for job seekers - matches AdminJobProfile structure exactly.
  */
-export default function AdminJobProfile() {
+export default function JobSeekerJobDetail() {
   const { jobId } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [applying, setApplying] = useState(false);
+  const userId = user?.id || user?._id;
 
   useEffect(() => {
     const loadJob = async () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await getJobProfile(token, jobId);
+        const data = await getJobProfilePublic(token, jobId);
         setJob(data);
       } catch (err) {
         console.error('Failed to load job profile', err);
@@ -59,15 +62,22 @@ export default function AdminJobProfile() {
     }
   };
 
-  const getPaymentStatusBadgeColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'paid':
-        return 'bg-green-500/20 text-green-300 border-green-500/40';
-      case 'not_paid':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
-      default:
-        return 'bg-white/10 text-white/70 border-white/20';
+  const handleApply = async () => {
+    setApplying(true);
+    try {
+      await applyJob(token, jobId);
+      setJob((prev) => ({ ...prev, candidates: [...(prev.candidates || []), userId] }));
+      toast.success('Applied successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to apply');
+    } finally {
+      setApplying(false);
     }
+  };
+
+  const isApplied = () => {
+    if (!userId || !job) return false;
+    return (job.candidates || []).some((c) => c === userId || (typeof c === 'object' && (c.id === userId || c._id === userId)));
   };
 
   if (loading) {
@@ -75,7 +85,7 @@ export default function AdminJobProfile() {
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/dashboard/admin')}
+            onClick={() => navigate('/dashboard/job-seeker')}
             className="text-sm text-white/70 hover:text-white transition-colors"
           >
             ← Back to Dashboard
@@ -93,7 +103,7 @@ export default function AdminJobProfile() {
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/dashboard/admin')}
+            onClick={() => navigate('/dashboard/job-seeker')}
             className="text-sm text-white/70 hover:text-white transition-colors"
           >
             ← Back to Dashboard
@@ -102,7 +112,7 @@ export default function AdminJobProfile() {
         <div className="glass rounded-2xl p-6 text-center">
           <p className="text-red-400 mb-4">{error || 'Job not found'}</p>
           <button
-            onClick={() => navigate('/dashboard/admin')}
+            onClick={() => navigate('/dashboard/job-seeker')}
             className="btn-primary"
           >
             Return to Dashboard
@@ -117,14 +127,14 @@ export default function AdminJobProfile() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-white/60">
         <button
-          onClick={() => navigate('/dashboard/admin')}
+          onClick={() => navigate('/dashboard/job-seeker')}
           className="hover:text-white transition-colors"
         >
-          Admin
+          Job Seeker
         </button>
         <span>/</span>
         <button
-          onClick={() => navigate('/dashboard/admin')}
+          onClick={() => navigate('/dashboard/job-seeker')}
           className="hover:text-white transition-colors"
         >
           Jobs
@@ -137,10 +147,10 @@ export default function AdminJobProfile() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-semibold mb-1">Job Details</h2>
-          <p className="text-sm text-white/70">Inspect job information and activity</p>
+          <p className="text-sm text-white/70">View job information and apply</p>
         </div>
         <button
-          onClick={() => navigate('/dashboard/admin')}
+          onClick={() => navigate('/dashboard/job-seeker')}
           className="text-sm text-white/70 hover:text-white transition-colors"
         >
           ← Back to Dashboard
@@ -219,6 +229,13 @@ export default function AdminJobProfile() {
             </div>
           </div>
         )}
+
+        {job.match_scores && userId && job.match_scores[userId] && (
+          <div>
+            <label className="text-xs text-white/60 mb-1 block">Match Score</label>
+            <p className="text-accent font-semibold text-lg">{job.match_scores[userId]}%</p>
+          </div>
+        )}
       </div>
 
       {/* Recruiter Info */}
@@ -238,7 +255,7 @@ export default function AdminJobProfile() {
           {job.recruiter.id && (
             <div>
               <button
-                onClick={() => navigate(`/dashboard/admin/users/${job.recruiter.id}`)}
+                onClick={() => navigate(`/dashboard/job-seeker/recruiters/${job.recruiter.id}`)}
                 className="text-sm text-primary hover:underline"
               >
                 View Recruiter Profile →
@@ -261,9 +278,9 @@ export default function AdminJobProfile() {
               <p className="text-xs text-white/60 mt-1">candidate(s) applied</p>
             </div>
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-              <label className="text-xs text-white/60 mb-1 block">Payment Status</label>
-              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium border mt-2 ${getPaymentStatusBadgeColor(job.stats.payment_status)}`}>
-                {job.stats.payment_status || 'NOT_PAID'}
+              <label className="text-xs text-white/60 mb-1 block">Status</label>
+              <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium border mt-2 ${getStatusBadgeColor(job.status)}`}>
+                {job.status || 'ACTIVE'}
               </span>
             </div>
             <div className="p-4 bg-white/5 rounded-lg border border-white/10">
@@ -275,8 +292,20 @@ export default function AdminJobProfile() {
           </div>
         </div>
       )}
+
+      {/* Apply Button */}
+      <div className="flex gap-3">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          disabled={isApplied() || applying}
+          onClick={handleApply}
+          className="flex-1 px-4 py-3 rounded-lg bg-accent hover:bg-accent/80 text-white font-semibold transition-colors disabled:opacity-50"
+        >
+          {applying ? 'Applying...' : isApplied() ? 'Applied' : 'Apply Now'}
+        </motion.button>
+      </div>
     </div>
   );
 }
-
 

@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"rizeos/backend/internal/models"
 	"rizeos/backend/internal/services"
 	"rizeos/backend/internal/utils"
 )
@@ -14,6 +17,78 @@ import (
 // UserController provides user listing for admin/recruiter views.
 type UserController struct {
 	UserService *services.UserService
+}
+
+// GetUserProfilePublic returns public user information (for job seekers viewing recruiters).
+func (u *UserController) GetUserProfilePublic(c *gin.Context) {
+	userID := c.Param("userId")
+	if userID == "" {
+		utils.JSONError(c, http.StatusBadRequest, "missing user id")
+		return
+	}
+
+	userOID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		utils.JSONError(c, http.StatusBadRequest, "invalid user id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	user, err := u.UserService.FindByID(ctx, userOID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.JSONError(c, http.StatusNotFound, "user not found")
+			return
+		}
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Get current user's role from JWT context
+	currentUserRole, roleExists := c.Get("role")
+	
+	// If recruiter is viewing a job seeker, return full profile (same as admin view)
+	if roleExists && currentUserRole.(string) == models.RoleRecruiter && user.Role == models.RoleSeeker {
+		// Return full profile data matching Admin panel response
+		response := gin.H{
+			"id":            user.ID,
+			"name":          user.Name,
+			"email":         user.Email,
+			"role":          user.Role,
+			"bio":           user.Bio,
+			"linkedin_url":  user.LinkedInURL,
+			"skills":        user.Skills,
+			"wallet_address": user.WalletAddress,
+			"created_at":    user.CreatedAt,
+			"updated_at":    user.UpdatedAt,
+			// Extended Job Seeker fields
+			"phone_number":  user.PhoneNumber,
+			"summary":       user.Summary,
+			"education":     user.Education,
+			"tenth_marks":   user.TenthMarks,
+			"twelfth_marks": user.TwelfthMarks,
+			"experience":    user.Experience,
+			"is_active":     user.IsActive,
+		}
+		utils.JSON(c, http.StatusOK, response)
+		return
+	}
+
+	// For other cases (e.g., job seeker viewing recruiter), return basic public info
+	response := gin.H{
+		"id":          user.ID,
+		"name":        user.Name,
+		"email":       user.Email,
+		"role":        user.Role,
+		"bio":         user.Bio,
+		"linkedin_url": user.LinkedInURL,
+		"created_at":  user.CreatedAt,
+		"updated_at":  user.UpdatedAt,
+	}
+
+	utils.JSON(c, http.StatusOK, response)
 }
 
 // List returns users with optional filters: role, name, skills (comma-separated).

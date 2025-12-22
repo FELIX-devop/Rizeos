@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { listUsers } from '../../services/api.js';
-import SeekerProfileCard from '../../components/SeekerProfileCard.jsx';
+import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
 
 /**
  * JobSeekersPage
@@ -124,13 +124,13 @@ export default function JobSeekersPage() {
       </div>
 
       {selectedSeeker && (
-        <SeekerProfileCard
+        <RecruiterSeekerProfile
           seeker={selectedSeeker}
-          currentUserId={user?.id}
           onClose={() => setSelectedSeeker(null)}
         />
       )}
     </div>
   );
 }
+
 

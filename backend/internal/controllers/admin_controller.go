@@ -146,17 +146,25 @@ func (a *AdminController) GetUserProfile(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"id":          user.ID,
-		"name":        user.Name,
-		"email":       user.Email,
-		"role":        user.Role,
-		"bio":         user.Bio,
-		"linkedin_url": user.LinkedInURL,
-		"skills":      user.Skills,
+		"id":            user.ID,
+		"name":          user.Name,
+		"email":         user.Email,
+		"role":          user.Role,
+		"bio":           user.Bio,
+		"linkedin_url":  user.LinkedInURL,
+		"skills":        user.Skills,
 		"wallet_address": user.WalletAddress,
-		"created_at":  user.CreatedAt,
-		"updated_at":  user.UpdatedAt,
-		"stats":       stats,
+		"created_at":    user.CreatedAt,
+		"updated_at":    user.UpdatedAt,
+		"stats":         stats,
+		// New optional fields for job seekers
+		"phone_number":  user.PhoneNumber,
+		"summary":       user.Summary,
+		"education":     user.Education,
+		"tenth_marks":   user.TenthMarks,
+		"twelfth_marks": user.TwelfthMarks,
+		"experience":    user.Experience,
+		"is_active":     user.IsActive,
 	}
 
 	utils.JSON(c, http.StatusOK, response)

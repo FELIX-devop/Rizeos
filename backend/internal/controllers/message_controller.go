@@ -17,12 +17,14 @@ import (
 type MessageController struct {
 	MessageService *services.MessageService
 	UserService    *services.UserService
+	JobService     *services.JobService
 }
 
 type sendMessageRequest struct {
 	ToUserID string `json:"toUserId" binding:"required"`
 	ToRole   string `json:"toRole" binding:"required"`
 	Message  string `json:"message" binding:"required"`
+	JobID    string `json:"jobId,omitempty"` // Optional: for job-context messages
 }
 
 // Send handles message creation from any role to another role.
@@ -39,8 +41,9 @@ func (m *MessageController) Send(c *gin.Context) {
 
 	// Validate role combinations
 	validCombinations := map[string][]string{
-		models.RoleRecruiter: {models.RoleAdmin},
+		models.RoleRecruiter: {models.RoleAdmin, models.RoleSeeker}, // Recruiter can message admin and seekers
 		models.RoleSeeker:    {models.RoleRecruiter},
+		models.RoleAdmin:     {models.RoleRecruiter, models.RoleSeeker}, // Admin can message recruiters and seekers
 	}
 
 	allowedRoles, ok := validCombinations[fromRole]
@@ -93,12 +96,40 @@ func (m *MessageController) Send(c *gin.Context) {
 		toUserOID = adminUsers[0].ID
 	}
 
+	// Validate job context for seeker → recruiter messages
+	var jobOID primitive.ObjectID
+	if fromRole == models.RoleSeeker && req.ToRole == models.RoleRecruiter {
+		if req.JobID == "" {
+			utils.JSONError(c, http.StatusBadRequest, "jobId is required for seeker to recruiter messages")
+			return
+		}
+		var err error
+		jobOID, err = primitive.ObjectIDFromHex(req.JobID)
+		if err != nil {
+			utils.JSONError(c, http.StatusBadRequest, "invalid job id")
+			return
+		}
+		// Verify job exists and recruiter owns it
+		job, err := m.JobService.FindByID(ctx, jobOID)
+		if err != nil {
+			utils.JSONError(c, http.StatusNotFound, "job not found")
+			return
+		}
+		if job.RecruiterID != toUserOID {
+			utils.JSONError(c, http.StatusForbidden, "recruiter does not own this job")
+			return
+		}
+	}
+
 	message := models.Message{
 		FromUserID: fromUserOID,
 		FromRole:   fromRole,
 		ToUserID:   toUserOID,
 		ToRole:     req.ToRole,
 		Message:    req.Message,
+	}
+	if !jobOID.IsZero() {
+		message.JobID = jobOID
 	}
 
 	created, err := m.MessageService.Create(ctx, message)
@@ -197,10 +228,9 @@ func (m *MessageController) RecruiterInbox(c *gin.Context) {
 		return
 	}
 
-	// Enrich messages with sender names
+	// Enrich messages with sender names and job context
 	enrichedMessages := make([]map[string]interface{}, 0, len(messages))
 	for _, msg := range messages {
-		user, err := m.UserService.FindByID(ctx, msg.FromUserID)
 		enriched := map[string]interface{}{
 			"id":           msg.ID,
 			"from_user_id": msg.FromUserID,
@@ -211,14 +241,87 @@ func (m *MessageController) RecruiterInbox(c *gin.Context) {
 			"is_read":      msg.IsRead,
 			"created_at":   msg.CreatedAt,
 		}
-		if err == nil {
-			enriched["from_user_name"] = user.Name
-			enriched["from_user_email"] = user.Email
+		// Only enrich with user info if FromUserID is not nil (not an announcement)
+		if msg.FromUserID != primitive.NilObjectID {
+			user, err := m.UserService.FindByID(ctx, msg.FromUserID)
+			if err == nil {
+				enriched["from_user_name"] = user.Name
+				enriched["from_user_email"] = user.Email
+			}
+		}
+		// Add job context if message has jobId
+		if !msg.JobID.IsZero() {
+			enriched["job_id"] = msg.JobID
+			// Try to get job title
+			if m.JobService != nil {
+				job, err := m.JobService.FindByID(ctx, msg.JobID)
+				if err == nil {
+					enriched["job_title"] = job.Title
+				}
+			}
 		}
 		enrichedMessages = append(enrichedMessages, enriched)
 	}
 
 	utils.JSON(c, http.StatusOK, enrichedMessages)
+}
+
+// SeekerInbox returns all messages for the current job seeker.
+func (m *MessageController) SeekerInbox(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	seekerOID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	messages, err := m.MessageService.GetSeekerInbox(ctx, seekerOID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Enrich messages with sender names (for non-announcement messages)
+	enrichedMessages := make([]map[string]interface{}, 0, len(messages))
+	for _, msg := range messages {
+		enriched := map[string]interface{}{
+			"id":           msg.ID,
+			"from_user_id": msg.FromUserID,
+			"from_role":    msg.FromRole,
+			"to_user_id":   msg.ToUserID,
+			"to_role":      msg.ToRole,
+			"message":      msg.Message,
+			"is_read":      msg.IsRead,
+			"created_at":   msg.CreatedAt,
+		}
+		// Only enrich with user info if it's not an announcement (FromUserID is not nil)
+		if msg.FromUserID != primitive.NilObjectID {
+			user, err := m.UserService.FindByID(ctx, msg.FromUserID)
+			if err == nil {
+				enriched["from_user_name"] = user.Name
+				enriched["from_user_email"] = user.Email
+			}
+		}
+		enrichedMessages = append(enrichedMessages, enriched)
+	}
+
+	utils.JSON(c, http.StatusOK, enrichedMessages)
+}
+
+// GetSeekerUnreadCount returns the count of unread messages for the current job seeker.
+func (m *MessageController) GetSeekerUnreadCount(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	seekerOID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	count, err := m.MessageService.GetSeekerUnreadCount(ctx, seekerOID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, gin.H{"unread_count": count})
 }
 
 // GetRecruiterUnreadCount returns the count of unread messages for the current recruiter.

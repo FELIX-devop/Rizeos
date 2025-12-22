@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import SeekerProfileCard from '../SeekerProfileCard.jsx';
-import { useAuth } from '../../context/AuthContext.jsx';
+import RecruiterSeekerProfile from '../RecruiterSeekerProfile.jsx';
 
 /**
  * JobSeekersSection Component
  * Displays and searches job seekers
  */
 export default function JobSeekersSection({ seekers, seekerQuery, setSeekerQuery, onSearch, onLoad }) {
-  const { user } = useAuth();
   const [selectedSeeker, setSelectedSeeker] = useState(null);
 
   // Load seekers on mount
@@ -81,9 +79,8 @@ export default function JobSeekersSection({ seekers, seekerQuery, setSeekerQuery
       </div>
       
       {selectedSeeker && (
-        <SeekerProfileCard 
+        <RecruiterSeekerProfile 
           seeker={selectedSeeker} 
-          currentUserId={user?.id} 
           onClose={() => setSelectedSeeker(null)} 
         />
       )}

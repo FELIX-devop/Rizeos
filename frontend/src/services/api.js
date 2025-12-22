@@ -63,9 +63,19 @@ export const getUserProfile = async (token, userId) => {
   return data.data;
 };
 
+export const getUserProfilePublic = async (token, userId) => {
+  const { data } = await client.get(`/users/${userId}`, { headers: authHeaders(token) });
+  return data.data || data;
+};
+
 export const getJobProfile = async (token, jobId) => {
   const { data } = await client.get(`/admin/jobs/${jobId}`, { headers: authHeaders(token) });
   return data.data;
+};
+
+export const getJobProfilePublic = async (token, jobId) => {
+  const { data } = await client.get(`/jobs/${jobId}`, { headers: authHeaders(token) });
+  return data.data || data;
 };
 
 export const listUsers = async (token, params = {}) => {
@@ -79,8 +89,11 @@ export const applyJob = async (token, jobId) => {
 };
 
 // Message APIs
-export const sendMessage = async (token, message, toUserId, toRole) => {
+export const sendMessage = async (token, message, toUserId, toRole, jobId = null) => {
   const payload = { message, toUserId, toRole };
+  if (jobId) {
+    payload.jobId = jobId;
+  }
   const { data } = await client.post('/messages/send', payload, { headers: authHeaders(token) });
   return data.data;
 };
@@ -109,6 +122,28 @@ export const getRecruiterInbox = async (token) => {
 export const getRecruiterUnreadCount = async (token) => {
   const { data } = await client.get('/messages/recruiter/unread-count', { headers: authHeaders(token) });
   return data.data;
+};
+
+// Job seeker inbox APIs
+export const getSeekerInbox = async (token) => {
+  const { data } = await client.get('/messages/seeker/inbox', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+export const getSeekerUnreadCount = async (token) => {
+  const { data } = await client.get('/messages/seeker/unread-count', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+// Announcement APIs
+export const createAnnouncement = async (token, message) => {
+  const { data } = await client.post('/admin/announcements', { message }, { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+export const listAnnouncements = async (token) => {
+  const { data } = await client.get('/announcements', { headers: authHeaders(token) });
+  return data.data || data;
 };
 
 // Optional helper to call AI service directly for resume skill extraction.
