@@ -1,7 +1,7 @@
 {
   "PORT": "8080",
   "MONGO_URI": "mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority",
-  "JWT_SECRET": "CHANGE_THIS_TO_SECURE_RANDOM_STRING_MIN_32_CHARS",
+  "JWT_SECRET": "10d652c46bac5e5e873a4e5d8074b22204f6279b2b639d76bc6a3440f91590f7",
   "ADMIN_SIGNUP_CODE": "owner-secret",
   "ADMIN_WALLET_ADDRESS": "0x7810dF8A3b2Efe8eDD502621b451581C5602eFD",
   "POLYGON_RPC_URL": "https://sepolia.infura.io/v3/de11139a237947098e16a7eff66b3fd1",

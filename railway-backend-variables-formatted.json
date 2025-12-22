@@ -11,7 +11,7 @@
   },
   {
     "key": "JWT_SECRET",
-    "value": "CHANGE_THIS_TO_SECURE_RANDOM_STRING_MIN_32_CHARS",
+    "value": "10d652c46bac5e5e873a4e5d8074b22204f6279b2b639d76bc6a3440f91590f7",
     "description": "JWT signing secret - MUST be 32+ characters, generate with: openssl rand -hex 32"
   },
   {
