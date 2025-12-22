@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -369,14 +370,10 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 		})
 	}
 
-	// Sort by fitment score descending
-	for i := 0; i < len(ranked); i++ {
-		for j := i + 1; j < len(ranked); j++ {
-			if ranked[j].FitmentScore > ranked[i].FitmentScore {
-				ranked[i], ranked[j] = ranked[j], ranked[i]
-			}
-		}
-	}
+	// Sort by fitment score descending (efficient sort)
+	sort.Slice(ranked, func(i, j int) bool {
+		return ranked[i].FitmentScore > ranked[j].FitmentScore
+	})
 
 	response := gin.H{
 		"jobId":    jobID,

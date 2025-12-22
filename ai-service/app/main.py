@@ -234,6 +234,15 @@ NEGATIVE_KEYWORDS = {
     # Common non-skill words
     "location", "address", "phone", "email", "contact", "reference",
     "achievement", "award", "honor", "scholarship", "publication",
+    
+    # Company/Organization indicators (CRITICAL - prevent company names as skills)
+    "technologies", "solutions", "systems", "services", "consulting",
+    "group", "enterprises", "industries", "corporation", "limited",
+    "international", "global", "worldwide", "pvt", "pvt ltd",
+    
+    # Common company name patterns
+    "software", "tech", "it solutions", "it services", "development",
+    "digital", "innovation", "ventures", "capital", "holdings",
 }
 
 # Skill normalization mappings (STRONG NORMALIZATION)
@@ -457,8 +466,17 @@ def _extract_skills_controlled_vocabulary(text: str) -> set:
             if not item_clean:
                 continue
             
-            # Check if item matches any skill in dictionary
+            # CRITICAL: Filter out company names and education before checking dictionary
             item_lower = item_clean.lower()
+            
+            # Reject if contains negative keywords
+            if _contains_negative_keyword(item_clean):
+                continue
+            
+            # Reject company name patterns
+            if re.search(r'\b(tech|technologies|solutions|systems|services|consulting|group|enterprises|industries|corporation|limited|international|global|worldwide|pvt|pvt ltd|software|development|digital|innovation|ventures|capital|holdings)\s+(inc|ltd|llc|pvt|limited|corporation|corp|co)\b', item_lower):
+                continue
+            
             # Remove common suffixes
             item_base = re.sub(r'\s*(framework|library|tool|technology|platform|service|api|sdk)\s*$', '', item_lower).strip()
             
@@ -546,6 +564,20 @@ def _is_valid_nlp_skill(candidate: str) -> bool:
     
     # 6. Reject all-caps long phrases (likely institutions)
     if len(words) > 1 and candidate_clean.isupper() and len(candidate_clean) > 15:
+        return False
+    
+    # 7. Reject company name patterns (CRITICAL)
+    candidate_lower = candidate_clean.lower()
+    company_patterns = [
+        r'\b(tech|technologies|solutions|systems|services|consulting|group|enterprises|industries|corporation|limited|international|global|worldwide|pvt|pvt ltd)\b',
+        r'\b(software|development|digital|innovation|ventures|capital|holdings)\s+(inc|ltd|llc|pvt|limited|corporation)\b',
+    ]
+    for pattern in company_patterns:
+        if re.search(pattern, candidate_lower):
+            return False
+    
+    # 8. Reject if contains common company suffixes
+    if re.search(r'\b(inc|ltd|llc|pvt|limited|corporation|corp|co)\b$', candidate_lower):
         return False
     
     return True
@@ -779,25 +811,38 @@ def match(req: MatchRequest):
                 print(f"Warning: Skill coverage calculation failed: {e}")
                 skill_score = 0.0
 
-        # Apply semantic threshold penalty for completely unrelated profiles
-        # Penalties help identify domain mismatches and unrelated profiles
-        if embed_score < 0.35:
-            # Very low semantic (< 0.35): aggressive penalty for completely unrelated
-            embed_score = embed_score * 0.15  # Reduce by 85%
-        elif embed_score < 0.45:
-            # Low semantic (0.35-0.45): strong penalty for domain mismatches
-            embed_score = embed_score * 0.5  # Reduce by 50%
-        elif embed_score < 0.55 and skill_score < 0.3:
-            # Medium-low semantic with low skill coverage: likely domain mismatch
-            embed_score = embed_score * 0.75  # Reduce by 25%
+        # CRITICAL: If candidate has ALL required skills, score MUST be ≥ 95%
+        # This ensures perfect skill matches are always highly ranked
+        if skill_score >= 1.0:
+            # All required skills match - guarantee minimum 95% score
+            # Use max of calculated score and 95% to preserve higher scores
+            hybrid = max(0.95, 0.7 * embed_score + 0.3 * skill_score)
+        else:
+            # Apply semantic threshold penalty for completely unrelated profiles
+            # Penalties help identify domain mismatches and unrelated profiles
+            if embed_score < 0.35:
+                # Very low semantic (< 0.35): aggressive penalty for completely unrelated
+                embed_score = embed_score * 0.15  # Reduce by 85%
+            elif embed_score < 0.45:
+                # Low semantic (0.35-0.45): strong penalty for domain mismatches
+                embed_score = embed_score * 0.5  # Reduce by 50%
+            elif embed_score < 0.55 and skill_score < 0.3:
+                # Medium-low semantic with low skill coverage: likely domain mismatch
+                embed_score = embed_score * 0.75  # Reduce by 25%
 
-        # Hybrid weight: 70% semantic similarity, 30% skill coverage
-        # This ensures semantic understanding dominates, while skill coverage provides precision
-        hybrid = 0.7 * embed_score + 0.3 * skill_score
+            # Hybrid weight: 70% semantic similarity, 30% skill coverage
+            # This ensures semantic understanding dominates, while skill coverage provides precision
+            hybrid = 0.7 * embed_score + 0.3 * skill_score
         
         # Convert to percentage and clamp to 0-100
         normalized = round(hybrid * 100, 2)
         normalized = max(0.0, min(100.0, normalized))
+        
+        # Defensive check: Ensure no NaN or infinity values
+        if not (0.0 <= normalized <= 100.0) or normalized != normalized:  # NaN check
+            print(f"Warning: Invalid score calculated: {normalized}, using 0.0")
+            normalized = 0.0
+        
         return {"score": normalized}
     
     except HTTPException:
