@@ -1,0 +1,12 @@
+{
+  "PORT": "8080",
+  "MONGO_URI": "mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority&tls=true",
+  "JWT_SECRET": "CHANGE_THIS_TO_SECURE_RANDOM_STRING_MIN_32_CHARS",
+  "ADMIN_SIGNUP_CODE": "owner-secret",
+  "ADMIN_WALLET_ADDRESS": "0x7810dF8A3b2Efe8eDD502621b451581C5602eFD",
+  "POLYGON_RPC_URL": "https://sepolia.infura.io/v3/de11139a237947098e16a7eff66b3fd1",
+  "PLATFORM_FEE_MATIC": "0.1",
+  "CORS_ALLOWED_ORIGINS": "*",
+  "AI_SERVICE_URL": "https://your-ai-service.railway.app"
+}
+

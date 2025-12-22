@@ -1,0 +1,48 @@
+[
+  {
+    "key": "PORT",
+    "value": "8080",
+    "description": "Server port (Railway may auto-set this)"
+  },
+  {
+    "key": "MONGO_URI",
+    "value": "mongodb+srv://rizeos_user:Qwertyuiop%40123%23@rizeos.ocor2vc.mongodb.net/rizeos?retryWrites=true&w=majority&tls=true",
+    "description": "MongoDB Atlas connection string (URL-encoded password)"
+  },
+  {
+    "key": "JWT_SECRET",
+    "value": "CHANGE_THIS_TO_SECURE_RANDOM_STRING_MIN_32_CHARS",
+    "description": "JWT signing secret - MUST be 32+ characters, generate with: openssl rand -hex 32"
+  },
+  {
+    "key": "ADMIN_SIGNUP_CODE",
+    "value": "owner-secret",
+    "description": "Secret code required for admin registration"
+  },
+  {
+    "key": "ADMIN_WALLET_ADDRESS",
+    "value": "0x7810dF8A3b2Efe8eDD502621b451581C5602eFD",
+    "description": "Wallet address that receives all payments"
+  },
+  {
+    "key": "POLYGON_RPC_URL",
+    "value": "https://sepolia.infura.io/v3/de11139a237947098e16a7eff66b3fd1",
+    "description": "Sepolia testnet RPC endpoint for transaction verification"
+  },
+  {
+    "key": "PLATFORM_FEE_MATIC",
+    "value": "0.1",
+    "description": "Minimum payment amount in ETH/MATIC (0.1)"
+  },
+  {
+    "key": "CORS_ALLOWED_ORIGINS",
+    "value": "*",
+    "description": "Allowed CORS origins - change to Vercel domain after frontend deployment"
+  },
+  {
+    "key": "AI_SERVICE_URL",
+    "value": "https://your-ai-service.railway.app",
+    "description": "AI service Railway URL - update after AI service deployment"
+  }
+]
+
