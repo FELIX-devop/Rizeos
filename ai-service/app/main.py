@@ -67,16 +67,25 @@ def get_embedder():
             print("Loading tokenizer...")
             tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
             
-            # Step 2: Load model with transformers - this properly materializes weights
+            # Step 2: Load model with transformers - force immediate weight loading
             print("Loading model with transformers (materializing all weights)...")
+            # Load model without device specification first (loads on CPU by default)
+            # Use low_cpu_mem_usage=False to force immediate weight loading (not lazy)
             model = AutoModel.from_pretrained(
                 MODEL_NAME,
+                low_cpu_mem_usage=False,  # Force immediate loading, not lazy
                 torch_dtype=torch.float32
             )
-            # Move to CPU - weights are already materialized, so this is safe
-            model = model.to('cpu')
+            # Materialize weights by doing a dummy forward pass
+            # This ensures all tensors have actual data before any device operations
+            print("Materializing weights with dummy forward pass...")
             model.eval()
-            print("Model weights materialized and moved to CPU")
+            with torch.no_grad():
+                # Create dummy input to force weight materialization
+                dummy_input = tokenizer("test", return_tensors="pt", padding=True, truncation=True)
+                # Forward pass materializes all weights
+                _ = model(**dummy_input)
+            print("Model weights materialized on CPU")
             
             # Step 3: Create SentenceTransformer components from loaded model
             print("Creating SentenceTransformer from materialized model...")
