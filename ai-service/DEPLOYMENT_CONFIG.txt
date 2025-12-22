@@ -1,0 +1,56 @@
+========================================
+AI SERVICE - RAILWAY DEPLOYMENT CONFIG
+========================================
+
+STEP 1: CREATE SERVICE
+----------------------
+Railway Dashboard → "+ New" → "GitHub Repo"
+Select your repository → "Deploy Now"
+
+STEP 2: ROOT DIRECTORY (CRITICAL!)
+----------------------------------
+Settings → Root Directory: ai-service
+
+STEP 3: START COMMAND
+---------------------
+Settings → Start Command:
+. /opt/venv/bin/activate && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+(Or leave empty - railway.json has it configured)
+
+STEP 4: ENVIRONMENT VARIABLES
+------------------------------
+Variables tab → Add these:
+
+PORT=8000
+MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+SPACY_MODEL=en_core_web_sm
+
+STEP 5: WAIT FOR DEPLOYMENT
+----------------------------
+- First build: 5-10 minutes
+- Watch Build Logs tab
+- Then check Deploy Logs tab
+
+STEP 6: GET SERVICE URL
+-----------------------
+Settings → Networking → Public Domain
+Copy the URL
+
+STEP 7: UPDATE BACKEND
+----------------------
+Backend Service → Variables → AI_SERVICE_URL
+Update with your new AI service URL
+
+========================================
+QUICK CHECKLIST
+========================================
+[ ] Root Directory set to: ai-service
+[ ] Environment variables added (3 variables)
+[ ] Build completed successfully
+[ ] Service shows "Online" status
+[ ] Health check works: curl https://your-url.up.railway.app/
+[ ] Backend AI_SERVICE_URL updated
+
+========================================
+
