@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import PaymentButton from '../../components/PaymentButton.jsx';
+import AIJobSuggestionModal from '../../components/AIJobSuggestionModal.jsx';
 import { createJob } from '../../services/api.js';
 import { toast } from 'sonner';
 
@@ -24,6 +25,7 @@ export default function PostJobPage({ config }) {
     budget: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const handleCreateJob = async (e) => {
     e.preventDefault();
@@ -69,8 +71,22 @@ export default function PostJobPage({ config }) {
       </div>
 
       <div className="glass rounded-2xl p-6 space-y-4">
-        <h2 className="text-2xl font-semibold">Post a Job</h2>
-        <p className="text-sm text-white/70">Complete payment to post your job listing</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">Post a Job</h2>
+            <p className="text-sm text-white/70">Complete payment to post your job listing</p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setAiModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/40 hover:border-purple-500/60 transition-colors"
+            title="Get AI-powered job suggestions"
+          >
+            <span className="text-xl">💡</span>
+            <span className="text-sm font-semibold">AI Suggestion</span>
+          </motion.button>
+        </div>
 
         <PaymentButton
           adminWallet={config.admin_wallet}
@@ -150,6 +166,22 @@ export default function PostJobPage({ config }) {
           </motion.button>
         </form>
       </div>
+
+      {/* AI Suggestion Modal */}
+      <AIJobSuggestionModal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        onUseTemplate={(template) => {
+          setForm({
+            title: template.title,
+            description: template.description,
+            skills: template.skills,
+            location: form.location,
+            budget: form.budget,
+          });
+          toast.success('Job template applied! Review and edit before posting.');
+        }}
+      />
     </div>
   );
 }

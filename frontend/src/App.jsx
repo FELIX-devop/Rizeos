@@ -25,6 +25,7 @@ import RecruiterMessagesHub from './pages/recruiter/RecruiterMessagesHub.jsx';
 import SendMessageToAdminPage from './pages/recruiter/SendMessageToAdminPage.jsx';
 import RecruiterInboxPage from './pages/recruiter/RecruiterInboxPage.jsx';
 import ProfilePage from './pages/recruiter/ProfilePage.jsx';
+import RecruiterAnalyticsPage from './pages/recruiter/RecruiterAnalyticsPage.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { fetchConfig } from './services/api.js';
 
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="messages/send" element={<SendMessageToAdminPage />} />
             <Route path="messages/inbox" element={<RecruiterInboxPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="analytics" element={<RecruiterAnalyticsPage />} />
           </Route>
           <Route
             path="/dashboard/admin"

@@ -78,6 +78,12 @@ export const getJobProfilePublic = async (token, jobId) => {
   return data.data || data;
 };
 
+// Get ranked job seekers for a specific job (recruiter only)
+export const getRankedJobSeekers = async (token, jobId) => {
+  const { data } = await client.get(`/recruiter/jobs/${jobId}/ranked-jobseekers`, { headers: authHeaders(token) });
+  return data.data || data;
+};
+
 export const listUsers = async (token, params = {}) => {
   const { data } = await client.get('/users', { params, headers: authHeaders(token) });
   return data.data;
@@ -183,5 +189,22 @@ export const matchScore = async (jobDescription, candidateBio, jobSkills = [], c
   }
   const json = await resp.json();
   return json.score || json.data?.score || 0;
+};
+
+// Recruiter Analytics APIs
+export const getSkillsAnalytics = async (token) => {
+  const { data } = await client.get('/recruiter/analytics/skills', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+export const getJobsAnalytics = async (token) => {
+  const { data } = await client.get('/recruiter/analytics/jobs', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+// Recruiter AI Suggestions API
+export const getAISuggestions = async (token) => {
+  const { data } = await client.get('/recruiter/jobs/ai-suggestions', { headers: authHeaders(token) });
+  return data.data || data;
 };
 

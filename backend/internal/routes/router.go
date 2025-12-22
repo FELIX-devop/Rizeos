@@ -67,6 +67,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	aiCtrl := &controllers.AIController{JobService: deps.JobSvc, UserService: deps.UserSvc, AIService: deps.AISvc}
 	messageCtrl := &controllers.MessageController{MessageService: deps.MessageSvc, UserService: deps.UserSvc, JobService: deps.JobSvc}
 	announcementCtrl := &controllers.AnnouncementController{AnnouncementService: deps.AnnouncementSvc, UserService: deps.UserSvc, MessageService: deps.MessageSvc}
+	recruiterCtrl := &controllers.RecruiterController{UserService: deps.UserSvc, JobService: deps.JobSvc, AIService: deps.AISvc}
 
 	router.GET("/api/health", func(c *gin.Context) { utils.JSON(c, http.StatusOK, gin.H{"status": "ok"}) })
 	router.GET("/api/config/public", configCtrl.Public)
@@ -112,6 +113,16 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	{
 		api.GET("/users", userCtrl.List) // filtered user list (e.g., seekers)
 		api.GET("/users/:userId", userCtrl.GetUserProfilePublic) // public user profile (for job seekers viewing recruiters)
+
+		// Recruiter job ranking
+		api.GET("/recruiter/jobs/:jobId/ranked-jobseekers", middleware.RecruiterOnly(), jobCtrl.GetRankedJobSeekers)
+
+		// Recruiter analytics
+		api.GET("/recruiter/analytics/skills", middleware.RecruiterOnly(), recruiterCtrl.GetSkillsAnalytics)
+		api.GET("/recruiter/analytics/jobs", middleware.RecruiterOnly(), recruiterCtrl.GetJobsAnalytics)
+
+		// Recruiter AI suggestions
+		api.GET("/recruiter/jobs/ai-suggestions", middleware.RecruiterOnly(), recruiterCtrl.GetAISuggestions)
 
 		// Messages: Recruiter inbox for seeker messages
 		api.GET("/messages/recruiter/inbox", middleware.RecruiterOnly(), messageCtrl.RecruiterInbox)

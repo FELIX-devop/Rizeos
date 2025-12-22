@@ -279,3 +279,108 @@ func (j *JobController) Apply(c *gin.Context) {
 	}
 	utils.JSON(c, http.StatusOK, job)
 }
+
+// GetRankedJobSeekers returns job seekers ranked by fitment score for a specific job.
+func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
+	jobID := c.Param("jobId")
+	if jobID == "" {
+		utils.JSONError(c, http.StatusBadRequest, "missing job id")
+		return
+	}
+
+	jobOID, err := primitive.ObjectIDFromHex(jobID)
+	if err != nil {
+		utils.JSONError(c, http.StatusBadRequest, "invalid job id")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	recruiterOID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+
+	// Verify job exists and recruiter owns it
+	job, err := j.JobService.FindByID(ctx, jobOID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.JSONError(c, http.StatusNotFound, "job not found")
+			return
+		}
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if job.RecruiterID != recruiterOID {
+		utils.JSONError(c, http.StatusForbidden, "you do not own this job")
+		return
+	}
+
+	// Fetch all job seekers
+	seekers, err := j.UserService.Search(ctx, models.RoleSeeker, "", nil)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "failed to fetch job seekers: "+err.Error())
+		return
+	}
+
+	// Calculate fitment scores for each seeker
+	type rankedSeeker struct {
+		JobSeekerID string   `json:"jobSeekerId"`
+		Name        string   `json:"name"`
+		Email       string   `json:"email"`
+		Skills      []string `json:"skills"`
+		FitmentScore float64 `json:"fitmentScore"`
+	}
+
+	var ranked []rankedSeeker
+	for _, seeker := range seekers {
+		// Use bio or summary for candidate bio
+		candidateBio := seeker.Bio
+		if seeker.Summary != "" {
+			candidateBio = seeker.Summary
+		}
+		if candidateBio == "" {
+			candidateBio = seeker.Name // Fallback to name if no bio/summary
+		}
+
+		// Calculate match score with skills
+		score, err := j.AIService.MatchScoreWithSkills(ctx, job.Description, candidateBio, job.Skills, seeker.Skills)
+		if err != nil {
+			// If AI service fails, skip this seeker or use 0
+			score = 0.0
+		}
+
+		// Clamp score to 0-100 (AI service already returns percentage, no multiplication needed)
+		if score < 0 {
+			score = 0
+		}
+		if score > 100 {
+			score = 100
+		}
+
+		ranked = append(ranked, rankedSeeker{
+			JobSeekerID:  seeker.ID.Hex(),
+			Name:         seeker.Name,
+			Email:        seeker.Email,
+			Skills:       seeker.Skills,
+			FitmentScore: score, // AI service already returns 0-100 percentage
+		})
+	}
+
+	// Sort by fitment score descending
+	for i := 0; i < len(ranked); i++ {
+		for j := i + 1; j < len(ranked); j++ {
+			if ranked[j].FitmentScore > ranked[i].FitmentScore {
+				ranked[i], ranked[j] = ranked[j], ranked[i]
+			}
+		}
+	}
+
+	response := gin.H{
+		"jobId":    jobID,
+		"jobTitle": job.Title,
+		"results":  ranked,
+	}
+
+	utils.JSON(c, http.StatusOK, response)
+}

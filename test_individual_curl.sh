@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Individual curl commands for manual testing
+# Copy and paste each command to test individually
+
+AI_SERVICE_URL="http://localhost:8000"
+ENDPOINT="/match"
+
+echo "=========================================="
+echo "Individual curl commands for testing"
+echo "=========================================="
+echo ""
+echo "SCENARIO 1: PERFECT MATCH (Expected: 80-95)"
+echo "----------------------------------------"
+echo "curl -X POST $AI_SERVICE_URL$ENDPOINT \\"
+echo "-H \"Content-Type: application/json\" \\"
+echo "-d '{\"job_description\": \"Looking for a React developer with experience in React, JavaScript, and frontend performance optimization\", \"candidate_bio\": \"Frontend developer with strong experience in React, JavaScript, and building optimized UI applications\", \"job_skills\": [\"React\", \"JavaScript\", \"Frontend\"], \"candidate_skills\": [\"React\", \"JavaScript\", \"Frontend\"]}'"
+echo ""
+echo "SCENARIO 2: PARTIAL MATCH (Expected: 50-70)"
+echo "----------------------------------------"
+echo "curl -X POST $AI_SERVICE_URL$ENDPOINT \\"
+echo "-H \"Content-Type: application/json\" \\"
+echo "-d '{\"job_description\": \"Backend developer needed with Spring Boot and PostgreSQL\", \"candidate_bio\": \"Fullstack developer with React and some backend exposure\", \"job_skills\": [\"Spring Boot\", \"PostgreSQL\"], \"candidate_skills\": [\"React\", \"JavaScript\"]}'"
+echo ""
+echo "SCENARIO 3: SKILL MATCH BUT SEMANTIC LOW (Expected: 40-60)"
+echo "----------------------------------------"
+echo "curl -X POST $AI_SERVICE_URL$ENDPOINT \\"
+echo "-H \"Content-Type: application/json\" \\"
+echo "-d '{\"job_description\": \"Machine learning engineer for deep learning research\", \"candidate_bio\": \"Software developer with Python scripting experience\", \"job_skills\": [\"Python\", \"Machine Learning\"], \"candidate_skills\": [\"Python\"]}'"
+echo ""
+echo "SCENARIO 4: SEMANTIC MATCH BUT SKILL MISMATCH (Expected: 45-65)"
+echo "----------------------------------------"
+echo "curl -X POST $AI_SERVICE_URL$ENDPOINT \\"
+echo "-H \"Content-Type: application/json\" \\"
+echo "-d '{\"job_description\": \"Cyber security analyst for threat detection and risk analysis\", \"candidate_bio\": \"Security enthusiast with interest in risk analysis and system vulnerabilities\", \"job_skills\": [\"Cyber Security\", \"Threat Detection\"], \"candidate_skills\": [\"Networking\"]}'"
+echo ""
+echo "SCENARIO 5: NO MATCH (Expected: 0-30)"
+echo "----------------------------------------"
+echo "curl -X POST $AI_SERVICE_URL$ENDPOINT \\"
+echo "-H \"Content-Type: application/json\" \\"
+echo "-d '{\"job_description\": \"iOS developer with Swift and UIKit\", \"candidate_bio\": \"Backend Java developer working with Spring Boot\", \"job_skills\": [\"Swift\", \"iOS\"], \"candidate_skills\": [\"Java\", \"Spring Boot\"]}'"
+echo ""
+

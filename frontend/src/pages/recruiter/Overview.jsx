@@ -45,6 +45,13 @@ export default function Overview() {
       icon: '📩',
       color: 'from-indigo-500/20 to-blue-500/20',
     },
+    {
+      title: 'Analytics',
+      description: 'View market trends and candidate insights',
+      route: '/dashboard/recruiter/analytics',
+      icon: '📊',
+      color: 'from-pink-500/20 to-rose-500/20',
+    },
   ];
 
   return (

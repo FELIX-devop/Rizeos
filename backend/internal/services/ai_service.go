@@ -46,15 +46,56 @@ func (s *AIService) MatchScore(ctx context.Context, jobDesc, candidateBio string
 	if err := s.do(ctx, "/match", payload, &out); err != nil {
 		return 0, err
 	}
-	if score, ok := out["score"].(float64); ok {
-		return score, nil
-	}
-	if data, ok := out["data"].(map[string]interface{}); ok {
-		if score, ok := data["score"].(float64); ok {
-			return score, nil
+	var score float64
+	if s, ok := out["score"].(float64); ok {
+		score = s
+	} else if data, ok := out["data"].(map[string]interface{}); ok {
+		if s, ok := data["score"].(float64); ok {
+			score = s
 		}
 	}
-	return 0, nil
+	// Hard clamp to guarantee 0-100 bounds (AI service already returns percentage)
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	return score, nil
+}
+
+// MatchScoreWithSkills returns similarity percentage with skill overlap consideration.
+func (s *AIService) MatchScoreWithSkills(ctx context.Context, jobDesc, candidateBio string, jobSkills, candidateSkills []string) (float64, error) {
+	payload := map[string]interface{}{
+		"job_description": jobDesc,
+		"candidate_bio":    candidateBio,
+	}
+	if len(jobSkills) > 0 {
+		payload["job_skills"] = jobSkills
+	}
+	if len(candidateSkills) > 0 {
+		payload["candidate_skills"] = candidateSkills
+	}
+	var out map[string]interface{}
+	if err := s.do(ctx, "/match", payload, &out); err != nil {
+		return 0, err
+	}
+	var score float64
+	if s, ok := out["score"].(float64); ok {
+		score = s
+	} else if data, ok := out["data"].(map[string]interface{}); ok {
+		if s, ok := data["score"].(float64); ok {
+			score = s
+		}
+	}
+	// Hard clamp to guarantee 0-100 bounds (AI service already returns percentage)
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	return score, nil
 }
 
 // Recommendations returns smart suggestions.
