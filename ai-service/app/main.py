@@ -48,14 +48,22 @@ def get_embedder():
     global embedder
     if embedder is None:
         try:
-            # Explicitly set device to CPU for Railway deployment
-            # This prevents meta tensor issues
+            # Load model first without specifying device to avoid meta tensor issues
+            # Then explicitly move to CPU after loading
             import torch
-            device = 'cpu'  # Force CPU for Railway
-            embedder = SentenceTransformer(MODEL_NAME, device=device)
+            print(f"Loading SentenceTransformer model: {MODEL_NAME}")
+            # Load without device specification first
+            embedder = SentenceTransformer(MODEL_NAME)
+            # Explicitly move to CPU after model is loaded
+            embedder = embedder.to('cpu')
             # Test the model with a dummy encoding to ensure it's fully loaded
+            print("Testing model with dummy encoding...")
             _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
+            print("Model loaded and tested successfully")
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Error loading model: {error_details}")
             raise RuntimeError(f"Failed to load SentenceTransformer model: {str(e)}")
     return embedder
 
