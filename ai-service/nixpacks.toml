@@ -10,5 +10,5 @@ cmds = [
 ]
 
 [start]
-cmd = "bash -c 'export PYTHONUNBUFFERED=1 && . /opt/venv/bin/activate && echo \"=== Starting AI Service ===\" && echo \"PORT: $PORT\" && echo \"Python: $(python --version)\" && echo \"Starting uvicorn...\" && exec uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info'"
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
 
