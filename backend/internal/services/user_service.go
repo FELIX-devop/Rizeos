@@ -226,3 +226,28 @@ func (s *UserService) UpdateProfile(ctx context.Context, id primitive.ObjectID, 
 	}
 	return s.FindByID(ctx, id)
 }
+
+// UpdatePremiumStatus marks a job seeker as premium.
+func (s *UserService) UpdatePremiumStatus(ctx context.Context, id primitive.ObjectID, paymentID primitive.ObjectID) error {
+	if s.col == nil {
+		userMemory.Lock()
+		defer userMemory.Unlock()
+		u, ok := userMemory.data[id.Hex()]
+		if !ok {
+			return mongo.ErrNoDocuments
+		}
+		u.IsPremium = true
+		u.PremiumPaymentID = &paymentID
+		u.UpdatedAt = time.Now()
+		userMemory.data[id.Hex()] = u
+		return nil
+	}
+	_, err := s.col.UpdateByID(ctx, id, bson.M{
+		"$set": bson.M{
+			"is_premium":         true,
+			"premium_payment_id": paymentID,
+			"updated_at":         time.Now(),
+		},
+	})
+	return err
+}

@@ -12,10 +12,11 @@ import { toast } from 'sonner';
  * This is the ONLY place where listJobs API is called.
  */
 export default function JobsPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(false);
+  const currentUserId = user?.id || user?._id;
 
   const loadJobs = async () => {
     setJobsLoading(true);
@@ -125,6 +126,23 @@ export default function JobsPage() {
                     <span className="text-accent font-semibold">{job.budget} ETH</span>
                   </div>
                 )}
+                {/* Applicants Button - Only show for job owner */}
+                {(() => {
+                  const jobRecruiterId = job.recruiter_id || job.recruiterId || job.recruiter?.id || job.recruiter?._id;
+                  const isJobOwner = String(jobRecruiterId) === String(currentUserId);
+                  return isJobOwner ? (
+                    <div className="mt-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => navigate(`/dashboard/recruiter/jobs/${job.id || job._id}/applicants`)}
+                        className="px-4 py-2 rounded-lg bg-accent hover:bg-accent/80 text-white font-semibold text-sm transition-colors"
+                      >
+                        Applicants
+                      </motion.button>
+                    </div>
+                  ) : null;
+                })()}
               </motion.div>
             ))}
         </div>

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { updateProfile, getProfile, extractSkillsFromResume } from '../../services/api.js';
+import { updateProfile, getProfile, extractSkillsFromResume, getPremiumStatus } from '../../services/api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { toast } from 'sonner';
+import PremiumName from '../../components/PremiumName.jsx';
 
 /**
  * SeekerProfilePage
@@ -32,6 +33,7 @@ export default function SeekerProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [skillInput, setSkillInput] = useState('');
   const [suggestedSkills, setSuggestedSkills] = useState([]);
+  const [isPremium, setIsPremium] = useState(false);
   const userId = user?.id || user?._id;
 
   const normalizeSkill = (s) => s.trim();
@@ -56,6 +58,14 @@ export default function SeekerProfilePage() {
           experience: p.experience || '',
           is_active: p.is_active !== undefined ? p.is_active : true,
         });
+        setIsPremium(p.is_premium || false);
+      })
+      .catch(console.error);
+    
+    // Also check premium status separately
+    getPremiumStatus(token)
+      .then((status) => {
+        setIsPremium(status.is_premium || false);
       })
       .catch(console.error);
   }, [token]);
@@ -151,7 +161,12 @@ export default function SeekerProfilePage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Your Profile</h2>
+        <div>
+          <h2 className="text-2xl font-semibold mb-2">Your Profile</h2>
+          {isPremium && (
+            <PremiumName name={profile.name || 'Your Name'} isPremium={isPremium} />
+          )}
+        </div>
         <button
           onClick={() => navigate('/dashboard/job-seeker')}
           className="text-sm text-white/70 hover:text-white transition-colors"

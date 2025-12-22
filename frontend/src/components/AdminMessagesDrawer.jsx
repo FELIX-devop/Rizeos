@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
 import { getAdminInbox, markMessageAsRead } from '../services/api.js';
 import { toast } from 'sonner';
+import PremiumName from './PremiumName.jsx';
 
 /**
  * AdminMessagesDrawer
@@ -131,9 +132,12 @@ export default function AdminMessagesDrawer({ isOpen, onClose }) {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-sm">
-                            {msg.from_user_name || 'Unknown Recruiter'}
-                          </p>
+                          <PremiumName 
+                            name={msg.from_user_name || 'Unknown Recruiter'} 
+                            isPremium={msg.from_user_is_premium || false}
+                            showBadge={false}
+                            className="font-semibold text-sm"
+                          />
                           {!msg.is_read && (
                             <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">
                               New

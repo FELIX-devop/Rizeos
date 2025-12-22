@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { getSeekerInbox, markMessageAsRead } from '../../services/api.js';
 import { toast } from 'sonner';
+import PremiumName from '../../components/PremiumName.jsx';
 
 /**
  * SeekerInboxPage
@@ -127,7 +128,15 @@ export default function SeekerInboxPage() {
                         </span>
                       )}
                       <p className="font-semibold text-sm">
-                        {isAnnouncement || isDirectMessage ? 'Admin' : (msg.from_user_name || 'Unknown Sender')}
+                        {isAnnouncement || isDirectMessage ? (
+                          'Admin'
+                        ) : (
+                          <PremiumName 
+                            name={msg.from_user_name || 'Unknown Sender'} 
+                            isPremium={msg.from_user_is_premium || false}
+                            showBadge={false}
+                          />
+                        )}
                       </p>
                       {!msg.is_read && (
                         <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">

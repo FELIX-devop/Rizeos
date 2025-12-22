@@ -40,15 +40,16 @@ func (s *PaymentService) VerifyAndStore(ctx context.Context, rpcURL, adminWallet
 	if s.col == nil {
 		// In-memory happy-path mock for tests.
 		payment := models.Payment{
-			ID:        primitive.NewObjectID(),
-			TxHash:    txHash,
-			Amount:    minAmount,
-			Recipient: adminWallet,
-			Network:   "sepolia",
-			Status:    "verified",
-			Consumed:  false,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			ID:          primitive.NewObjectID(),
+			TxHash:      txHash,
+			Amount:      minAmount,
+			Recipient:   adminWallet,
+			Network:     "sepolia",
+			Status:      "verified",
+			Consumed:    false,
+			PaymentType: "JOB_POSTING", // default for recruiter payments
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 		paymentMemory.Lock()
 		paymentMemory.data[payment.ID.Hex()] = payment
@@ -81,14 +82,15 @@ func (s *PaymentService) VerifyAndStore(ctx context.Context, rpcURL, adminWallet
 	}
 
 	payment := models.Payment{
-		TxHash:    txHash,
-		Amount:    valueEth,
-		Recipient: tx.To,
-		Network:   "sepolia",
-		Status:    "verified",
-		Consumed:  false,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		TxHash:      txHash,
+		Amount:      valueEth,
+		Recipient:   tx.To,
+		Network:     "sepolia",
+		Status:      "verified",
+		Consumed:    false,
+		PaymentType: "JOB_POSTING", // default for recruiter payments
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 	res, err := s.col.InsertOne(ctx, payment)
 	if err != nil {
@@ -107,11 +109,37 @@ func (s *PaymentService) AttachRecruiter(ctx context.Context, paymentID primitiv
 		if !ok {
 			return mongo.ErrNoDocuments
 		}
-		p.RecruiterID = recruiterID
+		p.RecruiterID = &recruiterID
 		paymentMemory.data[paymentID.Hex()] = p
 		return nil
 	}
 	_, err := s.col.UpdateByID(ctx, paymentID, bson.M{"$set": bson.M{"recruiter_id": recruiterID, "updated_at": time.Now()}})
+	return err
+}
+
+// AttachJobSeeker tags the payment with job seeker ownership for premium payments.
+func (s *PaymentService) AttachJobSeeker(ctx context.Context, paymentID primitive.ObjectID, jobSeekerID primitive.ObjectID) error {
+	if s.col == nil {
+		paymentMemory.Lock()
+		defer paymentMemory.Unlock()
+		p, ok := paymentMemory.data[paymentID.Hex()]
+		if !ok {
+			return mongo.ErrNoDocuments
+		}
+		p.JobSeekerID = &jobSeekerID
+		p.PaymentType = "JOB_SEEKER_PREMIUM"
+		p.Consumed = true // Premium payments are consumed immediately
+		paymentMemory.data[paymentID.Hex()] = p
+		return nil
+	}
+	_, err := s.col.UpdateByID(ctx, paymentID, bson.M{
+		"$set": bson.M{
+			"job_seeker_id": jobSeekerID,
+			"payment_type":  "JOB_SEEKER_PREMIUM",
+			"consumed":      true,
+			"updated_at":    time.Now(),
+		},
+	})
 	return err
 }
 
@@ -157,8 +185,10 @@ func (s *PaymentService) List(ctx context.Context, filter bson.M) ([]models.Paym
 		defer paymentMemory.Unlock()
 		items := make([]models.Payment, 0, len(paymentMemory.data))
 		for _, p := range paymentMemory.data {
-			if recruiterID, ok := filter["recruiter_id"].(primitive.ObjectID); ok && p.RecruiterID != recruiterID {
-				continue
+			if recruiterID, ok := filter["recruiter_id"].(primitive.ObjectID); ok {
+				if p.RecruiterID == nil || *p.RecruiterID != recruiterID {
+					continue
+				}
 			}
 			items = append(items, p)
 		}

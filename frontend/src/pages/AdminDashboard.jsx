@@ -4,6 +4,7 @@ import { adminDashboard, getUnreadCount } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import AdminMessagesDrawer from '../components/AdminMessagesDrawer.jsx';
 import AdminAnnouncementModal from '../components/AdminAnnouncementModal.jsx';
+import PremiumName from '../components/PremiumName.jsx';
 
 export default function AdminDashboard() {
   const { token } = useAuth();
@@ -123,7 +124,9 @@ export default function AdminDashboard() {
                       onClick={() => navigate(`/dashboard/admin/users/${u._id || u.id}`)}
                       className="border-t border-white/10 hover:bg-white/5 cursor-pointer transition-colors"
                     >
-                      <td className="py-2 pr-4">{u.name}</td>
+                      <td className="py-2 pr-4">
+                        <PremiumName name={u.name} isPremium={u.is_premium || false} showBadge={false} />
+                      </td>
                       <td className="py-2 pr-4 truncate">{u.email}</td>
                       <td className="py-2 pr-4">{u.role}</td>
                     </tr>

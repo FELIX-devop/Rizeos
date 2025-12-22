@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { getUserProfilePublic } from '../services/api.js';
 import { toast } from 'sonner';
 import AdminSendMessageModal from './AdminSendMessageModal.jsx';
+import PremiumName from './PremiumName.jsx';
 
 /**
  * RecruiterSeekerProfile
@@ -122,7 +123,7 @@ export default function RecruiterSeekerProfile({ seeker, onClose }) {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-white/60 mb-1 block">Name</label>
-                <p className="text-white font-medium">{user.name || 'N/A'}</p>
+                <PremiumName name={user.name || 'N/A'} isPremium={user.is_premium || false} className="text-white font-medium" />
               </div>
               <div>
                 <label className="text-xs text-white/60 mb-1 block">Email</label>

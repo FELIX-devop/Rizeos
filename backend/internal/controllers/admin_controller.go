@@ -165,6 +165,7 @@ func (a *AdminController) GetUserProfile(c *gin.Context) {
 		"twelfth_marks": user.TwelfthMarks,
 		"experience":    user.Experience,
 		"is_active":     user.IsActive,
+		"is_premium":    user.IsPremium,
 	}
 
 	utils.JSON(c, http.StatusOK, response)

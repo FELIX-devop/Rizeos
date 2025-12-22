@@ -168,6 +168,7 @@ func (m *MessageController) AdminInbox(c *gin.Context) {
 		if err == nil {
 			enriched["from_user_name"] = user.Name
 			enriched["from_user_email"] = user.Email
+			enriched["from_user_is_premium"] = user.IsPremium
 		}
 		enrichedMessages = append(enrichedMessages, enriched)
 	}
@@ -247,6 +248,7 @@ func (m *MessageController) RecruiterInbox(c *gin.Context) {
 			if err == nil {
 				enriched["from_user_name"] = user.Name
 				enriched["from_user_email"] = user.Email
+				enriched["from_user_is_premium"] = user.IsPremium
 			}
 		}
 		// Add job context if message has jobId
@@ -299,6 +301,7 @@ func (m *MessageController) SeekerInbox(c *gin.Context) {
 			if err == nil {
 				enriched["from_user_name"] = user.Name
 				enriched["from_user_email"] = user.Email
+				enriched["from_user_is_premium"] = user.IsPremium
 			}
 		}
 		enrichedMessages = append(enrichedMessages, enriched)

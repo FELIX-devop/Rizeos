@@ -38,6 +38,16 @@ export const verifyPayment = async (token, txHash) => {
   return data.data;
 };
 
+export const verifyJobSeekerPremium = async (token, txHash) => {
+  const { data } = await client.post('/payments/verify-jobseeker-premium', { tx_hash: txHash }, { headers: authHeaders(token) });
+  return data.data;
+};
+
+export const getPremiumStatus = async (token) => {
+  const { data } = await client.get('/jobseeker/premium-status', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
 export const listPayments = async (token) => {
   const { data } = await client.get('/payments', { headers: authHeaders(token) });
   return data.data;
@@ -92,6 +102,16 @@ export const listUsers = async (token, params = {}) => {
 export const applyJob = async (token, jobId) => {
   const { data } = await client.post(`/jobs/${jobId}/apply`, {}, { headers: authHeaders(token) });
   return data.data;
+};
+
+export const applyToJob = async (token, jobId) => {
+  const { data } = await client.post('/job-applications/apply', { jobId }, { headers: authHeaders(token) });
+  return data.data || data;
+};
+
+export const getJobApplicants = async (token, jobId) => {
+  const { data } = await client.get(`/recruiter/jobs/${jobId}/applicants`, { headers: authHeaders(token) });
+  return data.data || data;
 };
 
 // Message APIs

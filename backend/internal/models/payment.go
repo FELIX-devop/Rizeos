@@ -9,7 +9,9 @@ import (
 // Payment represents a platform fee payment.
 type Payment struct {
 	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	RecruiterID primitive.ObjectID  `bson:"recruiter_id" json:"recruiter_id"`
+	RecruiterID *primitive.ObjectID `bson:"recruiter_id,omitempty" json:"recruiter_id,omitempty"` // nullable for job seeker payments
+	JobSeekerID *primitive.ObjectID `bson:"job_seeker_id,omitempty" json:"job_seeker_id,omitempty"` // for premium payments
+	PaymentType string              `bson:"payment_type,omitempty" json:"payment_type,omitempty"` // "JOB_POSTING" or "JOB_SEEKER_PREMIUM"
 	TxHash      string              `bson:"tx_hash" json:"tx_hash"`
 	Amount      float64             `bson:"amount" json:"amount"`
 	Network     string              `bson:"network" json:"network"`

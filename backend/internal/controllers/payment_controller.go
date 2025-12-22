@@ -16,8 +16,9 @@ import (
 
 // PaymentController handles payment verification and reporting.
 type PaymentController struct {
-	Service *services.PaymentService
-	Cfg     config.Config
+	Service     *services.PaymentService
+	UserService *services.UserService
+	Cfg         config.Config
 }
 
 type verifyPaymentRequest struct {
@@ -67,4 +68,69 @@ func (p *PaymentController) List(c *gin.Context) {
 		return
 	}
 	utils.JSON(c, http.StatusOK, items)
+}
+
+// VerifyJobSeekerPremium verifies a premium payment for a job seeker.
+func (p *PaymentController) VerifyJobSeekerPremium(c *gin.Context) {
+	var req verifyPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSONError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if p.Cfg.AdminWallet == "" || p.Cfg.PolygonRPCURL == "" {
+		utils.JSONError(c, http.StatusInternalServerError, "admin wallet or RPC not configured")
+		return
+	}
+	
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+	
+	// Only job seekers can upgrade to premium
+	if role != models.RoleSeeker {
+		utils.JSONError(c, http.StatusForbidden, "only job seekers can upgrade to premium")
+		return
+	}
+	
+	jobSeekerOID, _ := primitive.ObjectIDFromHex(userID.(string))
+	
+	// Check if user is already premium
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	user, err := p.UserService.FindByID(ctx, jobSeekerOID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "user not found")
+		return
+	}
+	if user.IsPremium {
+		utils.JSONError(c, http.StatusBadRequest, "you already have premium access")
+		return
+	}
+	
+	// Verify payment
+	ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 20*time.Second)
+	defer cancel2()
+	payment, err := p.Service.VerifyAndStore(ctx2, p.Cfg.PolygonRPCURL, p.Cfg.AdminWallet, req.TxHash, p.Cfg.PlatformFeeMatic)
+	if err != nil {
+		utils.JSONError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	
+	// Attach job seeker and mark as consumed
+	err = p.Service.AttachJobSeeker(ctx2, payment.ID, jobSeekerOID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "failed to attach payment")
+		return
+	}
+	
+	// Update user premium status
+	err = p.UserService.UpdatePremiumStatus(ctx2, jobSeekerOID, payment.ID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "failed to update premium status")
+		return
+	}
+	
+	utils.JSON(c, http.StatusCreated, gin.H{
+		"payment": payment,
+		"message": "premium access activated",
+	})
 }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { listUsers, listJobs, getRankedJobSeekers } from '../../services/api.js';
 import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
+import PremiumName from '../../components/PremiumName.jsx';
 
 /**
  * JobSeekersPage
@@ -80,6 +81,7 @@ export default function JobSeekersPage() {
         email: r.email,
         skills: r.skills,
         fitmentScore: r.fitmentScore,
+        is_premium: r.isPremium || false,
       }));
       setSeekers(rankedSeekers);
     } catch (err) {
@@ -244,7 +246,9 @@ export default function JobSeekersPage() {
                           <span className="text-white/60">#{index + 1}</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 font-medium">{s.name}</td>
+                      <td className="py-3 pr-4 font-medium">
+                        <PremiumName name={s.name} isPremium={s.is_premium || false} showBadge={false} />
+                      </td>
                       <td className="py-3 pr-4 truncate text-white/80">{s.email}</td>
                       <td className="py-3 pr-4 truncate text-white/70">
                         {(s.skills || []).slice(0, 3).join(', ')}

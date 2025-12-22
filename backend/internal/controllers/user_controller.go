@@ -71,6 +71,7 @@ func (u *UserController) GetUserProfilePublic(c *gin.Context) {
 			"twelfth_marks": user.TwelfthMarks,
 			"experience":    user.Experience,
 			"is_active":     user.IsActive,
+			"is_premium":    user.IsPremium,
 		}
 		utils.JSON(c, http.StatusOK, response)
 		return
@@ -86,6 +87,7 @@ func (u *UserController) GetUserProfilePublic(c *gin.Context) {
 		"linkedin_url": user.LinkedInURL,
 		"created_at":  user.CreatedAt,
 		"updated_at":  user.UpdatedAt,
+		"is_premium":  user.IsPremium,
 	}
 
 	utils.JSON(c, http.StatusOK, response)
@@ -119,5 +121,32 @@ func (u *UserController) List(c *gin.Context) {
 		users[i].PasswordHash = ""
 	}
 	utils.JSON(c, http.StatusOK, users)
+}
+
+// GetPremiumStatus returns the premium status of the current job seeker.
+func (u *UserController) GetPremiumStatus(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+	
+	// Only job seekers can check their premium status
+	if role != models.RoleSeeker {
+		utils.JSONError(c, http.StatusForbidden, "only job seekers can check premium status")
+		return
+	}
+	
+	userOID, _ := primitive.ObjectIDFromHex(userID.(string))
+	
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	
+	user, err := u.UserService.FindByID(ctx, userOID)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "user not found")
+		return
+	}
+	
+	utils.JSON(c, http.StatusOK, gin.H{
+		"is_premium": user.IsPremium,
+	})
 }
 

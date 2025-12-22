@@ -32,6 +32,8 @@ type User struct {
 	TwelfthMarks  interface{}        `bson:"twelfth_marks,omitempty" json:"twelfth_marks,omitempty"` // string or number
 	Experience    interface{}        `bson:"experience,omitempty" json:"experience,omitempty"` // string or number
 	IsActive      *bool              `bson:"is_active,omitempty" json:"is_active,omitempty"` // pointer to allow nil (default true)
+	IsPremium     bool               `bson:"is_premium,omitempty" json:"is_premium,omitempty"` // premium status for job seekers
+	PremiumPaymentID *primitive.ObjectID `bson:"premium_payment_id,omitempty" json:"premium_payment_id,omitempty"` // reference to premium payment
 	CreatedAt     time.Time          `bson:"created_at" json:"created_at"`
 	UpdatedAt     time.Time          `bson:"updated_at" json:"updated_at"`
 }

@@ -7,9 +7,10 @@ import { toast } from 'sonner';
 /**
  * AdminSendMessageModal
  * 
- * Modal component for admin to send direct messages to users.
+ * Modal component for admin/recruiter to send direct messages to users.
+ * Supports optional jobId for job-context messages and custom onSend handler.
  */
-export default function AdminSendMessageModal({ isOpen, onClose, recipientUser }) {
+export default function AdminSendMessageModal({ isOpen, onClose, recipientUser, jobId = null, onSend = null }) {
   const { token } = useAuth();
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -28,8 +29,14 @@ export default function AdminSendMessageModal({ isOpen, onClose, recipientUser }
 
     setSending(true);
     try {
-      await sendMessage(token, message.trim(), recipientUser.id, recipientUser.role);
-      toast.success('Message sent successfully');
+      // If custom onSend handler provided, use it
+      if (onSend) {
+        await onSend(message.trim(), recipientUser.id);
+      } else {
+        // Default behavior: call sendMessage API
+        await sendMessage(token, message.trim(), recipientUser.id, recipientUser.role, jobId);
+        toast.success('Message sent successfully');
+      }
       setMessage('');
       onClose();
     } catch (err) {

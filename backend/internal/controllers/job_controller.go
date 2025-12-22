@@ -57,7 +57,7 @@ func (j *JobController) Create(c *gin.Context) {
 		utils.JSONError(c, http.StatusForbidden, "payment not valid or already used")
 		return
 	}
-	if payment.RecruiterID != primitive.NilObjectID && payment.RecruiterID != recruiterOID {
+	if payment.RecruiterID != nil && *payment.RecruiterID != recruiterOID {
 		utils.JSONError(c, http.StatusForbidden, "payment not owned by recruiter")
 		return
 	}
@@ -67,7 +67,7 @@ func (j *JobController) Create(c *gin.Context) {
 	}
 
 	// Attach recruiter if not set.
-	if payment.RecruiterID == primitive.NilObjectID {
+	if payment.RecruiterID == nil {
 		_ = j.PaymentService.AttachRecruiter(ctx, paymentOID, recruiterOID)
 	}
 
@@ -330,6 +330,7 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 		Email       string   `json:"email"`
 		Skills      []string `json:"skills"`
 		FitmentScore float64 `json:"fitmentScore"`
+		IsPremium   bool     `json:"isPremium"`
 	}
 
 	var ranked []rankedSeeker
@@ -364,6 +365,7 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 			Email:        seeker.Email,
 			Skills:       seeker.Skills,
 			FitmentScore: score, // AI service already returns 0-100 percentage
+			IsPremium:    seeker.IsPremium,
 		})
 	}
 

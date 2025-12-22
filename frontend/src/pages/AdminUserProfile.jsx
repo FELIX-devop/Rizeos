@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { getUserProfile } from '../services/api.js';
 import { toast } from 'sonner';
 import AdminSendMessageModal from '../components/AdminSendMessageModal.jsx';
+import PremiumName from '../components/PremiumName.jsx';
 
 /**
  * AdminUserProfile
@@ -124,7 +125,7 @@ export default function AdminUserProfile() {
           Users
         </button>
         <span>/</span>
-        <span className="text-white">{user.name || 'User Profile'}</span>
+        <PremiumName name={user.name || 'User Profile'} isPremium={user.is_premium || false} />
       </div>
 
       {/* Header */}
@@ -160,7 +161,7 @@ export default function AdminUserProfile() {
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs text-white/60 mb-1 block">Name</label>
-            <p className="text-white font-medium">{user.name || 'N/A'}</p>
+            <PremiumName name={user.name || 'N/A'} isPremium={user.is_premium || false} className="text-white font-medium" />
           </div>
           <div>
             <label className="text-xs text-white/60 mb-1 block">Email</label>
