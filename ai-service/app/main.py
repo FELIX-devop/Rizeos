@@ -50,6 +50,8 @@ def get_embedder():
         try:
             import torch
             import os
+            from transformers import AutoTokenizer, AutoModel
+            from sentence_transformers import models
             
             # Disable CUDA to force CPU usage
             os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
@@ -57,38 +59,43 @@ def get_embedder():
             print(f"Loading SentenceTransformer model: {MODEL_NAME}")
             print(f"PyTorch version: {torch.__version__}")
             
-            # WORKAROUND: Use model_kwargs to prevent meta tensor creation
-            # low_cpu_mem_usage=False ensures weights are loaded immediately
-            print("Loading model with low_cpu_mem_usage=False to materialize weights...")
+            # WORKAROUND: Load model using transformers directly, then wrap in SentenceTransformer
+            # This ensures weights are fully materialized before any device operations
+            print("Loading model components with transformers (bypassing meta tensor issue)...")
             
-            try:
-                # Try with model_kwargs to control loading behavior
-                embedder = SentenceTransformer(
-                    MODEL_NAME,
-                    device='cpu',
-                    model_kwargs={
-                        'low_cpu_mem_usage': False,  # Load weights immediately, not lazily
-                        'torch_dtype': torch.float32
-                    }
-                )
-                print("Model loaded with immediate weight loading")
-            except (TypeError, Exception) as e:
-                # Fallback: Load normally and hope for the best
-                print(f"model_kwargs approach failed: {e}, trying standard load...")
-                # Set environment variable to prevent lazy loading
-                os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = '1'
-                embedder = SentenceTransformer(MODEL_NAME)
-                # Try to materialize immediately
-                try:
-                    with torch.no_grad():
-                        _ = embedder.encode(["dummy"], convert_to_numpy=True, show_progress_bar=False)
-                except:
-                    pass  # Continue anyway
-                # Move to CPU
-                embedder = embedder.to('cpu')
+            # Step 1: Load tokenizer
+            print("Loading tokenizer...")
+            tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
             
-            # Set to evaluation mode
-            embedder.eval()
+            # Step 2: Load model with transformers - this properly materializes weights
+            print("Loading model with transformers (materializing all weights)...")
+            model = AutoModel.from_pretrained(
+                MODEL_NAME,
+                torch_dtype=torch.float32
+            )
+            # Move to CPU - weights are already materialized, so this is safe
+            model = model.to('cpu')
+            model.eval()
+            print("Model weights materialized and moved to CPU")
+            
+            # Step 3: Create SentenceTransformer components from loaded model
+            print("Creating SentenceTransformer from materialized model...")
+            word_embedding_model = models.Transformer(MODEL_NAME)
+            # Replace with our pre-loaded, materialized model
+            word_embedding_model.auto_model = model
+            word_embedding_model.tokenizer = tokenizer
+            
+            # Add pooling layer
+            pooling_model = models.Pooling(
+                word_embedding_model.get_word_embedding_dimension(),
+                pooling_mode_mean_tokens=True,
+                pooling_mode_cls_token=False,
+                pooling_mode_max_tokens=False
+            )
+            
+            # Create SentenceTransformer from components
+            embedder = SentenceTransformer(modules=[word_embedding_model, pooling_model])
+            print("SentenceTransformer created from materialized components")
             
             # Final test to ensure everything works
             print("Testing model...")
