@@ -22,5 +22,5 @@ PLATFORM_FEE_MATIC=0.1
 CORS_ALLOWED_ORIGINS=*
 
 # AI Service
-AI_SERVICE_URL=https://rizeos-production-f89d.up.railway.app
+
 

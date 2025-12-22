@@ -6,7 +6,7 @@ Copy these into Vercel → Settings → Environment Variables:
 
 VITE_API_URL=https://blissful-hope-production-a712.up.railway.app/api
 
-VITE_AI_URL=https://rizeos-production-f89d.up.railway.app
+VITE_AI_URL=https://rizeos-production-7106.up.railway.app
 
 ========================================
 IMPORTANT NOTES
