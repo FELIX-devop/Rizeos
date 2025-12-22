@@ -217,7 +217,7 @@ export const listAnnouncements = async (token) => {
 
 // Optional helper to call AI service directly for resume skill extraction.
 export const extractSkillsFromResume = async (base64Content) => {
-  const aiBase = import.meta.env.VITE_AI_URL || 'http://localhost:8000';
+  const aiBase = (import.meta.env.VITE_AI_URL || 'http://localhost:8000').replace(/\/+$/, ''); // Remove trailing slashes
   const resp = await fetch(`${aiBase}/skills/extract`, {
     method: 'POST',
     mode: 'cors',
@@ -234,7 +234,7 @@ export const extractSkillsFromResume = async (base64Content) => {
 
 // Optional helper to get match score directly from AI service.
 export const matchScore = async (jobDescription, candidateBio, jobSkills = [], candidateSkills = []) => {
-  const aiBase = import.meta.env.VITE_AI_URL || 'http://localhost:8000';
+  const aiBase = (import.meta.env.VITE_AI_URL || 'http://localhost:8000').replace(/\/+$/, ''); // Remove trailing slashes
   const resp = await fetch(`${aiBase}/match`, {
     method: 'POST',
     mode: 'cors',
