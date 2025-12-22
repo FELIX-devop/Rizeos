@@ -1,0 +1,53 @@
+========================================
+CORRECT SERVICE URLs - UPDATE THESE NOW
+========================================
+
+✅ AI SERVICE URL (WORKING):
+https://rizeos-production-f89d.up.railway.app
+
+✅ BACKEND URL (WORKING):
+https://blissful-hope-production-a712.up.railway.app
+
+========================================
+ACTION REQUIRED - UPDATE ENVIRONMENT VARIABLES
+========================================
+
+STEP 1: UPDATE VERCEL
+-----------------------
+1. Go to Vercel Dashboard
+2. Your Project → Settings → Environment Variables
+3. Find: VITE_AI_URL
+4. Update to: https://rizeos-production-f89d.up.railway.app
+5. Save
+6. Redeploy (or wait for auto-deploy)
+
+STEP 2: UPDATE RAILWAY BACKEND
+-------------------------------
+1. Go to Railway Dashboard
+2. Backend Service → Variables tab
+3. Find: AI_SERVICE_URL
+4. Update to: https://rizeos-production-f89d.up.railway.app
+5. Save (service will auto-redeploy)
+
+STEP 3: VERIFY
+-------------
+After updating, test resume parsing in your Vercel app.
+It should work now!
+
+========================================
+TEST RESULTS
+========================================
+
+✅ Root endpoint: {"status":"ok"}
+✅ OPTIONS (CORS): 200 OK with proper headers
+✅ POST /skills/extract: Working, returns skills
+
+Example test:
+curl -X POST https://rizeos-production-f89d.up.railway.app/skills/extract \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Python, React"}'
+
+Returns: {"skills":["Javascript","Node.js","Python","React"]}
+
+========================================
+
