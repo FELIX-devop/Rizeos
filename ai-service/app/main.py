@@ -48,18 +48,34 @@ def get_embedder():
     global embedder
     if embedder is None:
         try:
-            # Load model first without specifying device to avoid meta tensor issues
-            # Then explicitly move to CPU after loading
             import torch
+            import os
+            
+            # Set default device to CPU before loading model
+            # This prevents meta tensor issues during model initialization
+            os.environ['CUDA_VISIBLE_DEVICES'] = ''  # Disable CUDA
+            torch.set_default_device('cpu')
+            torch.set_default_dtype(torch.float32)
+            
             print(f"Loading SentenceTransformer model: {MODEL_NAME}")
-            # Load without device specification first
-            embedder = SentenceTransformer(MODEL_NAME)
-            # Explicitly move to CPU after model is loaded
-            embedder = embedder.to('cpu')
-            # Test the model with a dummy encoding to ensure it's fully loaded
-            print("Testing model with dummy encoding...")
-            _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
-            print("Model loaded and tested successfully")
+            print(f"PyTorch version: {torch.__version__}")
+            print(f"Default device: {torch.get_default_device()}")
+            
+            # Load model with explicit CPU device and trust_remote_code if needed
+            # Use device='cpu' but ensure model weights are loaded first
+            embedder = SentenceTransformer(
+                MODEL_NAME,
+                device='cpu',
+                trust_remote_code=False
+            )
+            
+            # Force model to CPU and ensure all parameters are materialized
+            embedder.eval()  # Set to evaluation mode
+            with torch.no_grad():  # Disable gradient computation
+                # Test the model with a dummy encoding to ensure it's fully loaded
+                print("Testing model with dummy encoding...")
+                _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
+                print("Model loaded and tested successfully")
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
@@ -167,7 +183,7 @@ SKILL_DICTIONARY = {
     "agile", "scrum", "kanban", "devops", "sre", "site reliability",
 }
 
-# STAGE 2: NEGATIVE KEYWORD FILTER (BLOCKLIST)
+# STAGE 2: NEGATIVE KEYWORD FILTER (BLOCKLIST) - Enhanced
 NEGATIVE_KEYWORDS = {
     # Education
     "school", "college", "university", "institute", "institution", "academy",
@@ -184,9 +200,14 @@ NEGATIVE_KEYWORDS = {
     # Location indicators
     "department", "faculty", "campus", "branch", "section",
     
-    # Generic terms
-    "years", "year", "experience", "worked", "worked at", "company", "corporation",
-    "inc", "ltd", "llc", "private limited",
+    # Generic resume words (MANDATORY FILTER)
+    "team", "project", "experience", "responsible", "school", "college",
+    "worked", "worked at", "company", "corporation", "inc", "ltd", "llc",
+    "private limited", "years", "year", "month", "months",
+    
+    # Common non-skill words
+    "location", "address", "phone", "email", "contact", "reference",
+    "achievement", "award", "honor", "scholarship", "publication",
 }
 
 # Skill normalization mappings (STRONG NORMALIZATION)
@@ -376,8 +397,169 @@ def _extract_skills_from_section(text: str) -> str:
     return skills_text  # Return empty string if no skills section found (fallback will handle)
 
 
+def _extract_skills_controlled_vocabulary(text: str) -> set:
+    """
+    PRIMARY METHOD: Extract skills using controlled vocabulary.
+    Fast, accurate, deterministic.
+    """
+    valid_skills = set()
+    
+    # Normalize text for matching
+    text_lower = text.lower()
+    
+    # Create a normalized skill dictionary for fast lookup
+    skill_dict_lower = {skill.lower(): skill for skill in SKILL_DICTIONARY}
+    
+    # Method 1: Direct dictionary matching (word boundary aware)
+    for skill_key, skill_value in skill_dict_lower.items():
+        # Use word boundaries to avoid partial matches
+        pattern = r'\b' + re.escape(skill_key) + r'\b'
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            valid_skills.add(skill_value)
+    
+    # Method 2: Extract from comma-separated lists (common in skills sections)
+    for line in text.split('\n'):
+        # Look for patterns like "Skills: HTML, CSS, JS, Java" or "React, Node.js, MongoDB"
+        if ':' in line:
+            after_colon = line.split(':', 1)[1]
+        else:
+            after_colon = line
+        
+        # Split by comma, semicolon, pipe, or slash
+        for item in re.split(r'[,;|/]', after_colon):
+            item_clean = item.strip()
+            if not item_clean:
+                continue
+            
+            # Check if item matches any skill in dictionary
+            item_lower = item_clean.lower()
+            # Remove common suffixes
+            item_base = re.sub(r'\s*(framework|library|tool|technology|platform|service|api|sdk)\s*$', '', item_lower).strip()
+            
+            # Check exact match or normalized match
+            if item_base in skill_dict_lower:
+                valid_skills.add(skill_dict_lower[item_base])
+            elif item_lower in skill_dict_lower:
+                valid_skills.add(skill_dict_lower[item_lower])
+            else:
+                # Check if any skill contains this item or vice versa
+                for skill_key, skill_value in skill_dict_lower.items():
+                    if item_base == skill_key or item_base in skill_key or skill_key in item_base:
+                        valid_skills.add(skill_value)
+                        break
+    
+    return valid_skills
+
+
+def _extract_skills_nlp_fallback(text: str) -> set:
+    """
+    SECONDARY METHOD: Use spaCy as fallback for skills not in dictionary.
+    Cautious extraction - only PRODUCT entities and tech-related nouns.
+    """
+    valid_skills = set()
+    
+    try:
+        doc = get_nlp()(text)
+        
+        # Extract PRODUCT entities only (tech products, tools)
+        for ent in doc.ents:
+            if ent.label_ == "PRODUCT":  # Only PRODUCT, not ORG
+                text_clean = ent.text.strip()
+                # Apply strict filters
+                if _is_valid_nlp_skill(text_clean):
+                    # Check if it matches skill dictionary (even if not exact)
+                    if _is_valid_skill(text_clean, SKILL_DICTIONARY):
+                        valid_skills.add(text_clean)
+        
+        # Extract tech-related noun phrases (cautious)
+        for token in doc:
+            # Only consider nouns/proper nouns that are not stop words
+            if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
+                text_clean = token.text.strip()
+                # Must be in CORE_SKILLS or pass strict validation
+                if text_clean.lower() in CORE_SKILLS:
+                    valid_skills.add(text_clean)
+                elif _is_valid_nlp_skill(text_clean):
+                    # Additional check: must look like a technical term
+                    if _looks_like_tech_skill(text_clean):
+                        if _is_valid_skill(text_clean, SKILL_DICTIONARY):
+                            valid_skills.add(text_clean)
+    
+    except Exception as e:
+        # If NLP fails, log but don't break
+        print(f"Warning: NLP fallback failed: {e}")
+    
+    return valid_skills
+
+
+def _is_valid_nlp_skill(candidate: str) -> bool:
+    """Validate if candidate from NLP is a valid skill."""
+    candidate_clean = candidate.strip()
+    
+    # MANDATORY FILTERS
+    # 1. Length check
+    if len(candidate_clean) > 30:
+        return False
+    
+    # 2. Numbers only
+    if candidate_clean.isdigit():
+        return False
+    
+    # 3. Must have alphabetic characters
+    if not any(c.isalpha() for c in candidate_clean):
+        return False
+    
+    # 4. Negative keywords
+    if _contains_negative_keyword(candidate_clean):
+        return False
+    
+    # 5. Word count limit
+    words = candidate_clean.split()
+    if len(words) > 3:
+        return False
+    
+    # 6. Reject all-caps long phrases (likely institutions)
+    if len(words) > 1 and candidate_clean.isupper() and len(candidate_clean) > 15:
+        return False
+    
+    return True
+
+
+def _looks_like_tech_skill(candidate: str) -> bool:
+    """Heuristic check if candidate looks like a technical skill."""
+    candidate_lower = candidate.lower()
+    
+    # Common tech skill patterns
+    tech_patterns = [
+        r'^[a-z]+\+{1,2}$',  # C++, C#
+        r'^[a-z]+\.[a-z]+$',  # node.js, react.js
+        r'^[a-z]+[0-9]+$',    # html5, css3
+        r'^[a-z]{2,}$',       # python, java, go
+    ]
+    
+    for pattern in tech_patterns:
+        if re.match(pattern, candidate_lower):
+            return True
+    
+    # Check if contains common tech keywords
+    tech_keywords = ['api', 'sdk', 'framework', 'library', 'tool', 'platform']
+    for keyword in tech_keywords:
+        if keyword in candidate_lower:
+            return True
+    
+    return False
+
+
 @app.post("/skills/extract", response_model=SkillExtractResponse)
 def extract_skills(req: SkillExtractRequest):
+    """
+    Improved skill extraction with hybrid approach:
+    1. Controlled vocabulary matching (PRIMARY - fast, accurate)
+    2. NLP fallback (SECONDARY - cautious, only for tech terms)
+    """
+    import time
+    start_time = time.time()
+    
     text = req.text or ""
     if req.resume_base64:
         try:
@@ -394,7 +576,7 @@ def extract_skills(req: SkillExtractRequest):
         if not text.strip():
             raise HTTPException(status_code=400, detail="No text extracted from PDF. Please use a text-based (non-scanned) PDF.")
 
-    # STAGE 4: Section-aware extraction (STRICT)
+    # STAGE 1: Section-aware extraction (STRICT)
     skills_text = _extract_skills_from_section(text)
     
     # FALLBACK: If no skills section found, scan entire text but apply filters
@@ -419,77 +601,31 @@ def extract_skills(req: SkillExtractRequest):
                 filtered_lines.append(line)
         skills_text = "\n".join(filtered_lines)
     
-    # Process with spaCy
-    doc = get_nlp()(skills_text)
-    extracted_candidates = set()
+    # PRIMARY METHOD: Controlled vocabulary matching
+    valid_skills = _extract_skills_controlled_vocabulary(skills_text)
     
-    # Extract noun phrases and entities
-    for token in doc.noun_chunks:
-        phrase = token.text.strip()
-        if 1 <= len(phrase.split()) <= 3:  # Limit to 1-3 words
-            extracted_candidates.add(phrase)
+    # SECONDARY METHOD: NLP fallback (only if controlled vocabulary found few skills)
+    if len(valid_skills) < 5:
+        nlp_skills = _extract_skills_nlp_fallback(skills_text)
+        valid_skills.update(nlp_skills)
     
-    # Extract named entities (PRODUCT, ORG for tech products)
-    for ent in doc.ents:
-        if ent.label_ in ["PRODUCT", "ORG"]:
-            text_clean = ent.text.strip()
-            if 1 <= len(text_clean.split()) <= 3:
-                extracted_candidates.add(text_clean)
-    
-    # Extract individual technical terms (including short tokens)
-    for token in doc:
-        if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
-            text_clean = token.text.strip()
-            # Allow short tokens if they're in CORE_SKILLS
-            if text_clean.lower() in CORE_SKILLS:
-                extracted_candidates.add(text_clean)
-            elif len(text_clean) > 2 and text_clean.isalnum():
-                extracted_candidates.add(text_clean)
-    
-    # Also extract from comma-separated lists (common in skills sections)
-    for line in skills_text.split('\n'):
-        # Look for patterns like "Skills: HTML, CSS, JS, Java"
-        if ':' in line:
-            after_colon = line.split(':', 1)[1]
-            # Split by comma and add candidates
-            for item in after_colon.split(','):
-                item_clean = item.strip()
-                if item_clean:
-                    extracted_candidates.add(item_clean)
-    
-    # STAGE 1: Filter by skill dictionary
-    valid_skills = set()
-    for candidate in extracted_candidates:
-        candidate_clean = candidate.strip()
-        
-        # FIX: Allow short tokens if in CORE_SKILLS
-        candidate_lower = candidate_clean.lower()
-        is_core_skill = candidate_lower in CORE_SKILLS
-        
-        # Only apply length filter if NOT a core skill
-        if not is_core_skill and len(candidate_clean) < 2:
-            continue
-        
-        # STAGE 2: Negative keyword filter (safety net)
-        if _contains_negative_keyword(candidate_clean):
-            continue
-        
-        # STAGE 3: POS filter - reject long capitalized phrases (likely institutions)
-        words = candidate_clean.split()
-        if len(words) > 3:
-            continue
-        if len(words) > 1 and candidate_clean.isupper() and len(candidate_clean) > 15:
-            continue
-        
-        # Check against skill dictionary (CORE_SKILLS always pass)
-        if is_core_skill or _is_valid_skill(candidate_clean, SKILL_DICTIONARY):
-            # STAGE 5: Normalize
-            normalized = _normalize_skill(candidate_clean)
-            if normalized:  # Only add if normalization produced a valid result
-                valid_skills.add(normalized)
+    # Normalize and deduplicate
+    normalized_skills = set()
+    for skill in valid_skills:
+        normalized = _normalize_skill(skill)
+        if normalized:
+            normalized_skills.add(normalized)
     
     # FINAL OUTPUT: Unique, normalized, sorted
-    skills_list = sorted(list(valid_skills), key=str.lower)[:25]
+    skills_list = sorted(list(normalized_skills), key=str.lower)[:25]
+    
+    # Performance check
+    elapsed = (time.time() - start_time) * 1000  # Convert to ms
+    if elapsed > 200:
+        print(f"Warning: Skill extraction took {elapsed:.2f}ms (target: <200ms)")
+    
+    # Debug logging (can be removed in production)
+    print(f"Extracted {len(skills_list)} skills in {elapsed:.2f}ms")
     
     # Backward compatibility
     return {"skills": skills_list, "extractedSkills": skills_list}
