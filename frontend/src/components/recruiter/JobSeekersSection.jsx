@@ -67,7 +67,7 @@ export default function JobSeekersSection({ seekers, seekerQuery, setSeekerQuery
                 </td>
               </tr>
             ))}
-            {seekers.length === 0 && (
+            {(!seekers || seekers.length === 0) && (
               <tr>
                 <td colSpan={3} className="py-8 text-white/60 text-center">
                   No seekers found. Try adjusting your search criteria.

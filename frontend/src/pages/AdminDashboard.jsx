@@ -102,12 +102,12 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="space-y-3 max-h-[60vh] overflow-auto">
-              {data.payments.length === 0 && (
+              {(!data.payments || data.payments.length === 0) && (
                 <div className="text-center py-12">
                   <p className="text-sm text-white/60">No transactions yet.</p>
                 </div>
               )}
-              {data.payments.map((p) => (
+              {(data.payments || []).map((p) => (
                 <TransactionCard key={p.id} transaction={p} />
               ))}
             </div>

@@ -83,7 +83,7 @@ export default function SeekerDashboard() {
   // Only compute scores if user is premium
   useEffect(() => {
     const run = async () => {
-      if (!userId || !profileLoaded || !jobs.length || !isPremium) return;
+      if (!userId || !profileLoaded || !jobs || !jobs.length || !isPremium) return;
       const candidateText = `${profile.bio || ''}\nSkills: ${candidateSkills.join(', ')}`;
       setLoadingScores(true);
       try {
@@ -231,7 +231,7 @@ export default function SeekerDashboard() {
             </div>
           </motion.div>
         ))}
-        {jobs.length === 0 && !jobsLoading && <p className="text-white/60 text-sm">No jobs yet.</p>}
+        {(!jobs || jobs.length === 0) && !jobsLoading && <p className="text-white/60 text-sm">No jobs yet.</p>}
         {jobsLoading && <p className="text-white/60 text-sm">Loading jobs…</p>}
       </div>
 

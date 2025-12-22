@@ -233,7 +233,7 @@ export default function Home({ config }) {
           </div>
         )}
 
-        {!loading && jobs.length > 0 && (
+        {!loading && jobs && jobs.length > 0 && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {jobs.map((job) => (
               <motion.div
@@ -283,7 +283,7 @@ export default function Home({ config }) {
           </div>
         )}
 
-        {!loading && jobs.length === 0 && (
+        {!loading && (!jobs || jobs.length === 0) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

@@ -59,13 +59,32 @@ export const createJob = async (token, payload) => {
 };
 
 export const listJobs = async (token, params = {}) => {
-  const { data } = await client.get('/jobs', { params, headers: token ? authHeaders(token) : {} });
-  return data.data;
+  try {
+    const { data } = await client.get('/jobs', { params, headers: token ? authHeaders(token) : {} });
+    const result = data.data;
+    return Array.isArray(result) ? result : (Array.isArray(result?.jobs) ? result.jobs : []);
+  } catch (err) {
+    console.error('Failed to load jobs', err);
+    return [];
+  }
 };
 
 export const adminDashboard = async (token) => {
-  const { data } = await client.get('/admin/dashboard', { headers: authHeaders(token) });
-  return data.data;
+  try {
+    const { data } = await client.get('/admin/dashboard', { headers: authHeaders(token) });
+    const result = data.data || {};
+    return {
+      payments: Array.isArray(result.payments) ? result.payments : [],
+      total_payments_matic: result.total_payments_matic || 0,
+      users: result.users || 0,
+      jobs: result.jobs || 0,
+      user_list: Array.isArray(result.user_list) ? result.user_list : [],
+      job_list: Array.isArray(result.job_list) ? result.job_list : [],
+    };
+  } catch (err) {
+    console.error('Failed to load admin dashboard', err);
+    return { payments: [], total_payments_matic: 0, users: 0, jobs: 0, user_list: [], job_list: [] };
+  }
 };
 
 export const getUserProfile = async (token, userId) => {
@@ -95,8 +114,14 @@ export const getRankedJobSeekers = async (token, jobId) => {
 };
 
 export const listUsers = async (token, params = {}) => {
-  const { data } = await client.get('/users', { params, headers: authHeaders(token) });
-  return data.data;
+  try {
+    const { data } = await client.get('/users', { params, headers: authHeaders(token) });
+    const result = data.data;
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error('Failed to load users', err);
+    return [];
+  }
 };
 
 export const applyJob = async (token, jobId) => {
@@ -125,8 +150,14 @@ export const sendMessage = async (token, message, toUserId, toRole, jobId = null
 };
 
 export const getAdminInbox = async (token) => {
-  const { data } = await client.get('/admin/messages/inbox', { headers: authHeaders(token) });
-  return data.data;
+  try {
+    const { data } = await client.get('/admin/messages/inbox', { headers: authHeaders(token) });
+    const result = data.data;
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error('Failed to load admin inbox', err);
+    return [];
+  }
 };
 
 export const getUnreadCount = async (token) => {
@@ -141,8 +172,14 @@ export const markMessageAsRead = async (token, messageId) => {
 
 // Recruiter inbox APIs
 export const getRecruiterInbox = async (token) => {
-  const { data } = await client.get('/messages/recruiter/inbox', { headers: authHeaders(token) });
-  return data.data;
+  try {
+    const { data } = await client.get('/messages/recruiter/inbox', { headers: authHeaders(token) });
+    const result = data.data;
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error('Failed to load recruiter inbox', err);
+    return [];
+  }
 };
 
 export const getRecruiterUnreadCount = async (token) => {
@@ -152,8 +189,14 @@ export const getRecruiterUnreadCount = async (token) => {
 
 // Job seeker inbox APIs
 export const getSeekerInbox = async (token) => {
-  const { data } = await client.get('/messages/seeker/inbox', { headers: authHeaders(token) });
-  return data.data || data;
+  try {
+    const { data } = await client.get('/messages/seeker/inbox', { headers: authHeaders(token) });
+    const result = data.data || data;
+    return Array.isArray(result) ? result : [];
+  } catch (err) {
+    console.error('Failed to load seeker inbox', err);
+    return [];
+  }
 };
 
 export const getSeekerUnreadCount = async (token) => {

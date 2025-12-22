@@ -107,7 +107,7 @@ export default function AdminMessagesDrawer({ isOpen, onClose }) {
                 </div>
               )}
 
-              {!loading && messages.length === 0 && (
+              {!loading && (!messages || messages.length === 0) && (
                 <div className="text-center py-12">
                   <p className="text-white/60 mb-2">No messages yet</p>
                   <p className="text-sm text-white/50">

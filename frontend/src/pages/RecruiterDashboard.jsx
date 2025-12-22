@@ -173,11 +173,11 @@ export default function RecruiterDashboard({ config }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="glass rounded-xl p-4 border border-white/10">
           <p className="text-xs text-white/60">Total Jobs</p>
-          <p className="text-2xl font-semibold mt-1">{jobs.length}</p>
+          <p className="text-2xl font-semibold mt-1">{(jobs || []).length}</p>
                 </div>
         <div className="glass rounded-xl p-4 border border-white/10">
           <p className="text-xs text-white/60">Job Seekers</p>
-          <p className="text-2xl font-semibold mt-1">{seekers.length}</p>
+          <p className="text-2xl font-semibold mt-1">{(seekers || []).length}</p>
         </div>
         <div className="glass rounded-xl p-4 border border-white/10">
           <p className="text-xs text-white/60">Total Payments</p>

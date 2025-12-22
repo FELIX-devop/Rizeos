@@ -41,7 +41,7 @@ export default function JobsSection({ jobs, jobsLoading, onRefresh }) {
             )}
           </motion.div>
         ))}
-        {jobs.length === 0 && !jobsLoading && (
+        {(!jobs || jobs.length === 0) && !jobsLoading && (
           <p className="text-sm text-white/60 text-center py-8">No jobs yet. Post your first job above!</p>
         )}
         {jobsLoading && (

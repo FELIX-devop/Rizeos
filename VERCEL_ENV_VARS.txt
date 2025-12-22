@@ -1,0 +1,20 @@
+========================================
+VERCEL FRONTEND ENVIRONMENT VARIABLES
+========================================
+
+Copy these into Vercel → Settings → Environment Variables:
+
+VITE_API_URL=https://blissful-hope-production-a712.up.railway.app/api
+
+VITE_AI_URL=https://rizeos-production-7106.up.railway.app
+
+========================================
+IMPORTANT NOTES
+========================================
+1. VITE_API_URL must end with /api
+2. Both URLs must use HTTPS (not HTTP)
+3. Set these for Production, Preview, and Development environments
+4. After setting, redeploy the frontend
+
+========================================
+

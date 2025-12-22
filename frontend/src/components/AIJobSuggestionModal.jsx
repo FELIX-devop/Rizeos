@@ -103,13 +103,13 @@ export default function AIJobSuggestionModal({ isOpen, onClose, onUseTemplate })
                 </div>
               )}
 
-              {!loading && suggestions.length === 0 && (
+              {!loading && (!suggestions || suggestions.length === 0) && (
                 <div className="text-center py-12">
                   <p className="text-white/60">No suggestions available at this time.</p>
                 </div>
               )}
 
-              {!loading && suggestions.length > 0 && (
+              {!loading && suggestions && suggestions.length > 0 && (
                 <div className="space-y-4">
                   {suggestions.map((suggestion, index) => (
                     <div
