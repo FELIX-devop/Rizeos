@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { getJobProfilePublic, applyJob } from '../../services/api.js';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { getScoreProps } from '../../utils/scoreColor.js';
 
 /**
  * JobSeekerJobDetail
@@ -233,7 +234,9 @@ export default function JobSeekerJobDetail() {
         {job.match_scores && userId && job.match_scores[userId] && (
           <div>
             <label className="text-xs text-white/60 mb-1 block">Match Score</label>
-            <p className="text-accent font-semibold text-lg">{job.match_scores[userId]}%</p>
+            <p {...getScoreProps(job.match_scores[userId], { className: 'font-semibold text-lg' })}>
+              {job.match_scores[userId].toFixed(1)}%
+            </p>
           </div>
         )}
       </div>

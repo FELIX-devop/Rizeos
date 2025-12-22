@@ -19,9 +19,10 @@ PORT = int(os.getenv("PORT", "8000"))
 app = FastAPI(title="RizeOS AI Service", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allow all origins for development
+    allow_methods=["*"],  # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
 )
 
 @app.get("/")
@@ -477,27 +478,83 @@ def extract_skills(req: SkillExtractRequest):
     return {"skills": skills_list, "extractedSkills": skills_list}
 
 
-def _jaccard(a: List[str], b: List[str]) -> float:
-    set_a = {s.lower().strip() for s in a if s}
-    set_b = {s.lower().strip() for s in b if s}
-    if not set_a or not set_b:
+def _normalize_skills_list(skills: List[str]) -> Set[str]:
+    """Normalize a list of skills: lowercase, trim, apply aliases, deduplicate."""
+    normalized = set()
+    for skill in skills:
+        if not skill or not skill.strip():
+            continue
+        # Normalize using existing function
+        norm_skill = _normalize_skill(skill).lower().strip()
+        if norm_skill:
+            normalized.add(norm_skill)
+    return normalized
+
+
+def _required_skill_coverage(required_skills: List[str], candidate_skills: List[str]) -> float:
+    """
+    Calculate skill score based on REQUIRED SKILL COVERAGE.
+    
+    Logic:
+    - Normalize all skills (lowercase, trim, alias mapping, deduplicate)
+    - Count how many required skills the candidate has
+    - Score = matched_required / total_required
+    - Extra skills NEVER penalize (only required skills matter)
+    - Optional bonus for extra relevant skills (capped at 0.05)
+    
+    Returns:
+        float: Skill score between 0.0 and 1.0
+    """
+    if not required_skills or not candidate_skills:
         return 0.0
-    inter = len(set_a & set_b)
-    union = len(set_a | set_b)
-    return inter / union if union else 0.0
+    
+    # STEP 1: Normalize skills
+    req_normalized = _normalize_skills_list(required_skills)
+    cand_normalized = _normalize_skills_list(candidate_skills)
+    
+    if not req_normalized:
+        return 0.0
+    
+    # STEP 2: Calculate required skill coverage
+    matched_required = len(req_normalized & cand_normalized)
+    total_required = len(req_normalized)
+    
+    # Base score: coverage of required skills
+    skill_score = matched_required / total_required if total_required > 0 else 0.0
+    
+    # STEP 3: Optional bonus for extra relevant skills (capped at 0.05)
+    extra_skills = cand_normalized - req_normalized
+    if extra_skills and skill_score > 0:
+        # Small bonus for having additional skills (shows breadth)
+        bonus = min(len(extra_skills) * 0.02, 0.05)
+        skill_score = min(skill_score + bonus, 1.0)
+    
+    # Ensure score is between 0 and 1
+    return max(0.0, min(1.0, skill_score))
 
 
 @app.post("/match", response_model=MatchResponse)
 def match(req: MatchRequest):
+    """
+    Calculate job fitment score using:
+    - Semantic similarity (70%): Sentence Transformers + cosine similarity
+    - Skill coverage (30%): Required skill coverage (NOT Jaccard)
+    
+    The skill score is based on REQUIRED SKILL COVERAGE:
+    - Having ALL required skills = high score (95%+)
+    - Extra skills NEVER penalize
+    - Only required skills are considered for base score
+    """
     embedder = get_embedder()
     embeddings = embedder.encode([req.job_description, req.candidate_bio])
     job_vec, cand_vec = embeddings[0], embeddings[1]
     cos = float(np.dot(job_vec, cand_vec) / (np.linalg.norm(job_vec) * np.linalg.norm(cand_vec)))
-    embed_score = (cos + 1) / 2  # 0..1
+    embed_score = (cos + 1) / 2  # Normalize to 0..1
 
+    # Calculate skill score using REQUIRED SKILL COVERAGE (not Jaccard)
     skill_score = 0.0
     if req.job_skills and req.candidate_skills:
-        skill_score = _jaccard(req.job_skills, req.candidate_skills)
+        skill_score = _required_skill_coverage(req.job_skills, req.candidate_skills)
 
     # Apply semantic threshold penalty for completely unrelated profiles
     # Penalties help identify domain mismatches and unrelated profiles
@@ -509,14 +566,15 @@ def match(req: MatchRequest):
         # Low semantic (0.35-0.45): strong penalty for domain mismatches
         embed_score = embed_score * 0.5  # Reduce by 50%
     elif embed_score < 0.55 and skill_score < 0.3:
-        # Medium-low semantic with low skill overlap: likely domain mismatch
+        # Medium-low semantic with low skill coverage: likely domain mismatch
         embed_score = embed_score * 0.75  # Reduce by 25%
 
-    # Hybrid weight: 60% embeddings, 40% skill overlap
-    # More weight to explicit skill matches helps with domain mismatches
-    hybrid = 0.6 * embed_score + 0.4 * skill_score
+    # Hybrid weight: 70% semantic similarity, 30% skill coverage
+    # This ensures semantic understanding dominates, while skill coverage provides precision
+    hybrid = 0.7 * embed_score + 0.3 * skill_score
+    
+    # Convert to percentage and clamp to 0-100
     normalized = round(hybrid * 100, 2)
-    # Hard clamp to guarantee 0-100 bounds
     normalized = max(0.0, min(100.0, normalized))
     return {"score": normalized}
 

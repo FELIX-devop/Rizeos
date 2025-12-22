@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { listUsers, listJobs, getRankedJobSeekers } from '../../services/api.js';
 import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
 import PremiumName from '../../components/PremiumName.jsx';
+import { getScoreColorClass, getScoreProps } from '../../utils/scoreColor.js';
 
 /**
  * JobSeekersPage
@@ -117,12 +118,6 @@ export default function JobSeekersPage() {
     }
   };
 
-  // Get score color class
-  const getScoreColor = (score) => {
-    if (score >= 75) return 'text-green-400';
-    if (score >= 50) return 'text-yellow-400';
-    return 'text-red-400';
-  };
 
   return (
     <div className="space-y-4">
@@ -257,10 +252,7 @@ export default function JobSeekersPage() {
                       {selectedJobId && (
                         <td className="py-3 pr-4">
                           {s.fitmentScore !== undefined ? (
-                            <span
-                              className={`font-semibold ${getScoreColor(s.fitmentScore)}`}
-                              title="AI-generated job fitment score based on skills and profile"
-                            >
+                            <span {...getScoreProps(s.fitmentScore)}>
                               {s.fitmentScore.toFixed(1)}%
                             </span>
                           ) : (

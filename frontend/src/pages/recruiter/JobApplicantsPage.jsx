@@ -6,6 +6,7 @@ import { getJobApplicants, getUserProfilePublic, sendMessage } from '../../servi
 import { toast } from 'sonner';
 import PremiumName from '../../components/PremiumName.jsx';
 import AdminSendMessageModal from '../../components/AdminSendMessageModal.jsx';
+import { getScoreProps } from '../../utils/scoreColor.js';
 
 /**
  * JobApplicantsPage
@@ -173,11 +174,7 @@ export default function JobApplicantsPage() {
                     </td>
                     <td className="py-3 px-4">
                       {applicant.fitmentScore !== null && applicant.fitmentScore !== undefined ? (
-                        <span className={`text-sm font-semibold ${
-                          applicant.fitmentScore >= 70 ? 'text-green-400' :
-                          applicant.fitmentScore >= 50 ? 'text-yellow-400' :
-                          'text-red-400'
-                        }`}>
+                        <span {...getScoreProps(applicant.fitmentScore, { className: 'text-sm' })}>
                           {applicant.fitmentScore.toFixed(1)}%
                         </span>
                       ) : (

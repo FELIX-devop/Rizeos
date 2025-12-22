@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { adminDashboard, getUnreadCount } from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import AdminMessagesDrawer from '../components/AdminMessagesDrawer.jsx';
 import AdminAnnouncementModal from '../components/AdminAnnouncementModal.jsx';
 import PremiumName from '../components/PremiumName.jsx';
+import { Copy, Check, Clock } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminDashboard() {
   const { token } = useAuth();
@@ -92,16 +95,22 @@ export default function AdminDashboard() {
       <div className="glass rounded-2xl p-5">
         {activeTab === 'payments' && (
           <>
-        <h3 className="font-semibold mb-2">Transactions</h3>
-        <div className="space-y-2 max-h-72 overflow-auto">
-          {data.payments.map((p) => (
-            <div key={p.id} className="p-3 bg-white/5 rounded-lg text-sm flex justify-between">
-              <span className="truncate">{p.tx_hash || p.txHash}</span>
-              <span className="text-accent">{p.amount} MATIC</span>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-semibold">Transactions</h3>
+                <p className="text-sm text-white/60 mt-1">All payment transactions on the platform</p>
+              </div>
             </div>
-          ))}
-          {data.payments.length === 0 && <p className="text-sm text-white/60">No payments yet.</p>}
-        </div>
+            <div className="space-y-3 max-h-[60vh] overflow-auto">
+              {data.payments.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-sm text-white/60">No transactions yet.</p>
+                </div>
+              )}
+              {data.payments.map((p) => (
+                <TransactionCard key={p.id} transaction={p} />
+              ))}
+            </div>
           </>
         )}
 
@@ -200,6 +209,120 @@ function MetricCard({ label, value, onClick, active }) {
       <p className="text-sm text-white/60">{label}</p>
       <p className="text-2xl font-semibold mt-1">{value}</p>
     </button>
+  );
+}
+
+function TransactionCard({ transaction }) {
+  const [copiedHash, setCopiedHash] = useState(false);
+  const [copiedWallet, setCopiedWallet] = useState(false);
+  const txHash = transaction.tx_hash || transaction.txHash || '';
+  const walletAddress = transaction.wallet_address || transaction.recruiter_wallet || '';
+  const status = transaction.status || (transaction.consumed !== false ? 'Success' : 'Pending');
+  const createdAt = transaction.created_at || transaction.createdAt;
+
+  const shortenHash = (hash) => {
+    if (!hash || hash.length < 10) return hash;
+    return `${hash.slice(0, 6)}...${hash.slice(-6)}`;
+  };
+
+  const copyToClipboard = async (text, label, setCopied) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success(`${label} copied to clipboard`);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      toast.error('Failed to copy');
+    }
+  };
+
+  return (
+    <motion.div
+      whileHover={{ scale: 1.01, y: -2 }}
+      className="glass rounded-xl p-4 border border-white/10 hover:border-white/20 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-sm font-semibold text-white/90">
+              {shortenHash(txHash)}
+            </span>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => copyToClipboard(txHash, 'Transaction hash', setCopiedHash)}
+              className="p-1 rounded hover:bg-white/10 transition-colors"
+              title="Copy full transaction hash"
+            >
+              {copiedHash ? (
+                <Check className="w-4 h-4 text-green-400" />
+              ) : (
+                <Copy className="w-4 h-4 text-white/60" />
+              )}
+            </motion.button>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/60">
+            {walletAddress && (
+              <>
+                <span className="font-mono truncate max-w-[200px]" title={walletAddress}>
+                  {shortenHash(walletAddress)}
+                </span>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => copyToClipboard(walletAddress, 'Wallet address', setCopiedWallet)}
+                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                  title="Copy wallet address"
+                >
+                  {copiedWallet ? (
+                    <Check className="w-3 h-3 text-green-400" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-white/40" />
+                  )}
+                </motion.button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <span className="text-lg font-bold text-orange-400">
+            {transaction.amount} MATIC
+          </span>
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+              status === 'Success' || status === 'success' || status === 'verified'
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+            }`}
+          >
+            {status === 'Success' || status === 'success' || status === 'verified' ? (
+              <span className="flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                Success
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Pending
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+      {createdAt && (
+        <div className="pt-2 border-t border-white/5">
+          <p className="text-xs text-white/50">
+            {new Date(createdAt).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        </div>
+      )}
+    </motion.div>
   );
 }
 

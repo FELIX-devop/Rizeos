@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import PremiumPaymentButton from '../components/PremiumPaymentButton.jsx';
+import { getScoreProps } from '../utils/scoreColor.js';
 
 export default function SeekerDashboard() {
   const { token, user } = useAuth();
@@ -192,7 +193,9 @@ export default function SeekerDashboard() {
               <h3 className="font-semibold">{job.title}</h3>
               {isPremium ? (
                 job.match_scores && userId && job.match_scores[userId] ? (
-                  <span className="text-xs text-accent">Match {job.match_scores[userId]}%</span>
+                  <span {...getScoreProps(job.match_scores[userId], { className: 'text-xs' })}>
+                    Match {job.match_scores[userId].toFixed(1)}%
+                  </span>
                 ) : (
                   <span className="text-xs text-white/60">{loadingScores ? 'Scoring…' : 'No score yet'}</span>
                 )

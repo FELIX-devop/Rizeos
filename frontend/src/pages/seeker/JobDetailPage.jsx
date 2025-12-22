@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { listJobs, applyJob } from '../../services/api.js';
 import { toast } from 'sonner';
+import { getScoreProps } from '../../utils/scoreColor.js';
 
 /**
  * JobDetailPage
@@ -109,7 +110,9 @@ export default function JobDetailPage() {
             <span>{job.location || 'Remote'}</span>
             {job.budget && <span>${job.budget.toLocaleString()}</span>}
             {job.match_scores && userId && job.match_scores[userId] && (
-              <span className="text-accent">Match: {job.match_scores[userId]}%</span>
+              <span {...getScoreProps(job.match_scores[userId])}>
+                Match: {job.match_scores[userId].toFixed(1)}%
+              </span>
             )}
           </div>
         </div>

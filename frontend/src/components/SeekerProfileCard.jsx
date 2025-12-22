@@ -1,4 +1,5 @@
 import React from 'react';
+import { getScoreProps } from '../utils/scoreColor.js';
 
 export default function SeekerProfileCard({ seeker, onClose, currentUserId }) {
   const skills = seeker?.skills || [];
@@ -16,7 +17,11 @@ export default function SeekerProfileCard({ seeker, onClose, currentUserId }) {
       <p className="text-white/70 text-sm">Email: {seeker?.email || '—'}</p>
       <p className="text-white/70 text-sm">Skills: {skills.join(', ') || '—'}</p>
       <p className="text-white/70 text-sm">Bio: {seeker?.bio || '—'}</p>
-      {match && <p className="text-sm text-accent">Match: {match}%</p>}
+      {match && (
+        <p {...getScoreProps(match, { className: 'text-sm' })}>
+          Match: {match.toFixed(1)}%
+        </p>
+      )}
     </div>
   );
 }

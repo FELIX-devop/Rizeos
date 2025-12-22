@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useTheme } from '../context/ThemeContext.jsx';
-import { Sun, Moon, User } from 'lucide-react';
+import { User, Sparkles } from 'lucide-react';
 import { getDashboardRoute } from '../utils/routes.js';
 import { getSeekerUnreadCount } from '../services/api.js';
 
@@ -65,17 +64,32 @@ export default function NavBar() {
     }
   }, [user?.role, token]);
 
-  const { theme, toggleTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-slate-900/70 border-b border-white/10">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link to="/" className="text-xl font-bold">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">RizeOS Portal</span>
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'backdrop-blur-xl bg-slate-900/80 border-b border-white/5' : 'backdrop-blur-lg bg-slate-900/70 border-b border-white/10'
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 group">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+            RizeOS Portal
+          </span>
         </Link>
         <div className="flex items-center gap-3 relative" ref={menuRef}>
-          <motion.button whileTap={{ scale: 0.95 }} className="p-2 rounded-lg hover:bg-white/10" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </motion.button>
           {user ? (
             <>
               {/* Inbox icon for job seekers */}
@@ -130,9 +144,23 @@ export default function NavBar() {
               </div>
             </>
           ) : (
-            <div className="flex gap-2 text-sm">
-              <Link to="/login" className="btn-primary">Login</Link>
-              <Link to="/register" className="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Register</Link>
+            <div className="flex items-center gap-3">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 rounded-lg font-medium text-white border-2 border-white/20 hover:border-white/30 bg-white/5 hover:bg-white/10 transition-all duration-200"
+                >
+                  Login
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Link
+                  to="/register"
+                  className="px-4 py-2 rounded-lg font-semibold text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 transition-all duration-200 shadow-lg shadow-purple-500/25"
+                >
+                  Register
+                </Link>
+              </motion.div>
             </div>
           )}
         </div>
