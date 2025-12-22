@@ -22,5 +22,5 @@ PLATFORM_FEE_MATIC=0.1
 CORS_ALLOWED_ORIGINS=*
 
 # AI Service
-AI_SERVICE_URL=https://your-ai-service.railway.app
+AI_SERVICE_URL=https://rizeos-production-7106.up.railway.app
 

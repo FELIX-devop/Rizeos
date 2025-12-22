@@ -7,6 +7,6 @@
   "POLYGON_RPC_URL": "https://sepolia.infura.io/v3/de11139a237947098e16a7eff66b3fd1",
   "PLATFORM_FEE_MATIC": "0.1",
   "CORS_ALLOWED_ORIGINS": "*",
-  "AI_SERVICE_URL": "https://your-ai-service.railway.app"
+  "AI_SERVICE_URL": "https://rizeos-production-7106.up.railway.app"
 }
 
