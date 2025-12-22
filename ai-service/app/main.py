@@ -20,7 +20,8 @@ app = FastAPI(title="RizeOS AI Service", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for development
-    allow_methods=["*"],  # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicitly include OPTIONS
     allow_headers=["*"],  # Allow all headers
     expose_headers=["*"],
 )
@@ -359,6 +360,11 @@ def _extract_skills_from_section(text: str) -> str:
     return skills_text  # Return empty string if no skills section found (fallback will handle)
 
 
+@app.options("/skills/extract")
+def options_skills_extract():
+    """Handle CORS preflight for /skills/extract"""
+    return {"message": "OK"}
+
 @app.post("/skills/extract", response_model=SkillExtractResponse)
 def extract_skills(req: SkillExtractRequest):
     text = req.text or ""
@@ -532,6 +538,11 @@ def _required_skill_coverage(required_skills: List[str], candidate_skills: List[
     # Ensure score is between 0 and 1
     return max(0.0, min(1.0, skill_score))
 
+
+@app.options("/match")
+def options_match():
+    """Handle CORS preflight for /match"""
+    return {"message": "OK"}
 
 @app.post("/match", response_model=MatchResponse)
 def match(req: MatchRequest):
