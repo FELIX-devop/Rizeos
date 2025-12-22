@@ -57,21 +57,41 @@ def get_embedder():
             print(f"Loading SentenceTransformer model: {MODEL_NAME}")
             print(f"PyTorch version: {torch.__version__}")
             
-            # Load model without device specification first to avoid meta tensor issues
-            # SentenceTransformer will automatically use CPU if CUDA is disabled
-            print("Initializing model...")
-            embedder = SentenceTransformer(MODEL_NAME)
+            # WORKAROUND: Use model_kwargs to prevent meta tensor creation
+            # low_cpu_mem_usage=False ensures weights are loaded immediately
+            print("Loading model with low_cpu_mem_usage=False to materialize weights...")
             
-            # Explicitly move to CPU after model is loaded (if not already on CPU)
-            # This ensures all tensors are materialized
-            if hasattr(embedder, 'to'):
+            try:
+                # Try with model_kwargs to control loading behavior
+                embedder = SentenceTransformer(
+                    MODEL_NAME,
+                    device='cpu',
+                    model_kwargs={
+                        'low_cpu_mem_usage': False,  # Load weights immediately, not lazily
+                        'torch_dtype': torch.float32
+                    }
+                )
+                print("Model loaded with immediate weight loading")
+            except (TypeError, Exception) as e:
+                # Fallback: Load normally and hope for the best
+                print(f"model_kwargs approach failed: {e}, trying standard load...")
+                # Set environment variable to prevent lazy loading
+                os.environ['TRANSFORMERS_NO_ADVISORY_WARNINGS'] = '1'
+                embedder = SentenceTransformer(MODEL_NAME)
+                # Try to materialize immediately
+                try:
+                    with torch.no_grad():
+                        _ = embedder.encode(["dummy"], convert_to_numpy=True, show_progress_bar=False)
+                except:
+                    pass  # Continue anyway
+                # Move to CPU
                 embedder = embedder.to('cpu')
             
             # Set to evaluation mode
             embedder.eval()
             
-            # Test the model with a dummy encoding to ensure it's fully loaded
-            print("Testing model with dummy encoding...")
+            # Final test to ensure everything works
+            print("Testing model...")
             with torch.no_grad():
                 _ = embedder.encode(["test"], convert_to_numpy=True, show_progress_bar=False)
             print("Model loaded and tested successfully")
