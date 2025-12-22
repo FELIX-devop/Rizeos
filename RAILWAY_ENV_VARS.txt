@@ -14,7 +14,7 @@ ADMIN_SIGNUP_CODE=owner-secret
 # ⚠️ PAYMENT CONFIGURATION - REQUIRED FOR PAYMENTS TO WORK
 # ⚠️ NOTE: You're using Sepolia RPC, but variable name is POLYGON_RPC_URL
 # This works, but consider renaming for clarity or using Polygon Mumbai
-ADMIN_WALLET_ADDRESS=0xYOUR_ADMIN_WALLET_ADDRESS
+ADMIN_WALLET_ADDRESS=0x7810dF8A3b2Efe8eDD502621b451581C5602eFD
 POLYGON_RPC_URL=https://sepolia.infura.io/v3/de11139a237947098e16a7eff66b3fd1
 PLATFORM_FEE_MATIC=0.1
 
