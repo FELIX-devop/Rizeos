@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { listUsers, listJobs, getRankedJobSeekers } from '../../services/api.js';
+import { listUsers, listJobs, getRankedJobSeekers, getJobProfilePublic } from '../../services/api.js';
 import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
 import PremiumName from '../../components/PremiumName.jsx';
 import { getScoreColorClass, getScoreProps } from '../../utils/scoreColor.js';
@@ -23,6 +23,7 @@ export default function JobSeekersPage() {
   const [recruiterJobs, setRecruiterJobs] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [rankedData, setRankedData] = useState(null); // { jobId, jobTitle, results: [{ jobSeekerId, name, email, skills, fitmentScore }] }
+  const [selectedJobData, setSelectedJobData] = useState(null); // Store full job data to access match_scores
 
   // Load recruiter's jobs
   const loadRecruiterJobs = async () => {
@@ -67,30 +68,77 @@ export default function JobSeekersPage() {
   const loadRankedSeekers = async (jobId) => {
     if (!jobId) {
       loadSeekers();
+      setSelectedJobData(null);
       return;
     }
 
     setLoading(true);
     try {
+      // Step 1: Fetch job data to access stored match_scores
+      let jobData = null;
+      try {
+        jobData = await getJobProfilePublic(token, jobId);
+        setSelectedJobData(jobData);
+      } catch (err) {
+        console.warn('Could not fetch job data for match_scores:', err);
+      }
+
+      // Step 2: Fetch ranked seekers from backend
       const data = await getRankedJobSeekers(token, jobId);
       setRankedData(data);
-      // Convert ranked results to seekers format for compatibility
-      const rankedSeekers = (data.results || []).map(r => ({
-        id: r.jobSeekerId,
-        _id: r.jobSeekerId,
-        name: r.name,
-        email: r.email,
-        skills: r.skills,
-        fitmentScore: r.fitmentScore !== null && r.fitmentScore !== undefined ? r.fitmentScore : 0,
-        is_premium: r.isPremium || false,
-      }));
       
-      // CRITICAL: Sort by fitmentScore DESC (highest first)
-      // This ensures proper ranking even if backend doesn't sort
-      // Handle null/undefined scores as 0
+      // Step 3: Convert and enrich with fitment scores from multiple possible locations
+      const rankedSeekers = (data.results || []).map(r => {
+        const seekerId = r.jobSeekerId || r.id || r._id;
+        
+        // CRITICAL: Try multiple possible locations for fitment score
+        let fitmentScore = 0;
+        
+        // Location 1: Direct from backend response (primary)
+        if (r.fitmentScore !== null && r.fitmentScore !== undefined) {
+          fitmentScore = r.fitmentScore;
+        }
+        // Location 2: From job.match_scores[seekerId] (if job data available)
+        else if (jobData && jobData.match_scores && seekerId) {
+          const storedScore = jobData.match_scores[seekerId];
+          if (storedScore !== null && storedScore !== undefined) {
+            fitmentScore = storedScore;
+          }
+        }
+        // Location 3: From seeker object properties (if available)
+        else if (r.jobFitmentScores && r.jobFitmentScores[jobId]) {
+          fitmentScore = r.jobFitmentScores[jobId];
+        }
+        else if (r.fitmentScores && r.fitmentScores[jobId]) {
+          fitmentScore = r.fitmentScores[jobId];
+        }
+        else if (r.fitmentScoreMap && r.fitmentScoreMap[jobId]) {
+          fitmentScore = r.fitmentScoreMap[jobId];
+        }
+        
+        // Ensure score is valid number (0-100)
+        if (typeof fitmentScore !== 'number' || isNaN(fitmentScore)) {
+          fitmentScore = 0;
+        }
+        fitmentScore = Math.max(0, Math.min(100, fitmentScore));
+        
+        return {
+          id: seekerId,
+          _id: seekerId,
+          name: r.name,
+          email: r.email,
+          skills: r.skills || [],
+          displayFitmentScore: fitmentScore, // Derived field for sorting/display
+          fitmentScore: fitmentScore, // Keep for backward compatibility
+          is_premium: r.isPremium || false,
+        };
+      });
+      
+      // CRITICAL: Sort by displayFitmentScore DESC (highest first)
+      // Stable, deterministic sorting
       rankedSeekers.sort((a, b) => {
-        const scoreA = a.fitmentScore !== null && a.fitmentScore !== undefined ? a.fitmentScore : 0;
-        const scoreB = b.fitmentScore !== null && b.fitmentScore !== undefined ? b.fitmentScore : 0;
+        const scoreA = a.displayFitmentScore || 0;
+        const scoreB = b.displayFitmentScore || 0;
         return scoreB - scoreA; // DESC order (highest first)
       });
       
@@ -99,6 +147,7 @@ export default function JobSeekersPage() {
       console.error('Failed to load ranked seekers', err);
       setSeekers([]);
       setRankedData(null);
+      setSelectedJobData(null);
     } finally {
       setLoading(false);
     }
@@ -243,9 +292,14 @@ export default function JobSeekersPage() {
               </thead>
               <tbody>
                 {seekers.map((s, index) => {
-                  // Best Match badge: only show if score >= 70 and is rank #1
-                  const score = s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0;
+                  // Get display score (use displayFitmentScore if available, fallback to fitmentScore)
+                  const score = s.displayFitmentScore !== undefined 
+                    ? s.displayFitmentScore 
+                    : (s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0);
+                  
+                  // Best Match badge: ONLY for rank #1 AND score >= 70
                   const isTopMatch = selectedJobId && index === 0 && score >= 70;
+                  
                   return (
                     <tr
                       key={s.id || s._id}
@@ -278,12 +332,12 @@ export default function JobSeekersPage() {
                       </td>
                       {selectedJobId && (
                         <td className="py-3 pr-4">
-                          {s.fitmentScore !== undefined ? (
-                            <span {...getScoreProps(s.fitmentScore)}>
-                              {s.fitmentScore.toFixed(1)}%
+                          {score > 0 ? (
+                            <span {...getScoreProps(score)}>
+                              {score.toFixed(1)}%
                             </span>
                           ) : (
-                            <span className="text-white/40">N/A</span>
+                            <span className="text-white/40">0%</span>
                           )}
                         </td>
                       )}
