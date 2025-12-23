@@ -247,8 +247,8 @@ export default function JobSeekersPage() {
               </thead>
               <tbody>
                 {seekers.map((s, index) => {
-                  // Backend guarantees fitmentScore exists and is valid (0-100)
-                  const score = s.fitmentScore || 0;
+                  // Backend guarantees fitmentScore exists and is > 0 (NO fallback 0)
+                  const score = s.fitmentScore;
                   
                   // Best Match badge: ONLY for rank #1 AND score >= 70
                   const isTopMatch = selectedJobId && index === 0 && score >= 70;
