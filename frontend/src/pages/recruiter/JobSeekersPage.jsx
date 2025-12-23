@@ -81,9 +81,19 @@ export default function JobSeekersPage() {
         name: r.name,
         email: r.email,
         skills: r.skills,
-        fitmentScore: r.fitmentScore,
+        fitmentScore: r.fitmentScore !== null && r.fitmentScore !== undefined ? r.fitmentScore : 0,
         is_premium: r.isPremium || false,
       }));
+      
+      // CRITICAL: Sort by fitmentScore DESC (highest first)
+      // This ensures proper ranking even if backend doesn't sort
+      // Handle null/undefined scores as 0
+      rankedSeekers.sort((a, b) => {
+        const scoreA = a.fitmentScore !== null && a.fitmentScore !== undefined ? a.fitmentScore : 0;
+        const scoreB = b.fitmentScore !== null && b.fitmentScore !== undefined ? b.fitmentScore : 0;
+        return scoreB - scoreA; // DESC order (highest first)
+      });
+      
       setSeekers(rankedSeekers);
     } catch (err) {
       console.error('Failed to load ranked seekers', err);
@@ -190,7 +200,11 @@ export default function JobSeekersPage() {
 
         {!loading && seekers.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-white/60">No seekers found. Try adjusting your search criteria.</p>
+            <p className="text-white/60">
+              {selectedJobId 
+                ? "No applicants found for this job yet." 
+                : "No seekers found. Try adjusting your search criteria."}
+            </p>
           </div>
         )}
 
