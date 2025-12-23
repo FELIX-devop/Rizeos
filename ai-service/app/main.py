@@ -98,8 +98,11 @@ def get_embedder():
         try:
             # Double-check after acquiring lock
             if embedder is not None:
+                if _model_loading_lock:
+                    _model_loading_lock.release()
                 return embedder
-        try:
+            
+            # Load model
             import torch
             import os
             from transformers import AutoTokenizer, AutoModel
