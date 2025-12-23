@@ -186,6 +186,13 @@ func (j *JobApplicationController) GetApplicants(c *gin.Context) {
 					score = 100
 				}
 				fitmentScore = &score
+				
+				// Store calculated score in job.MatchScores for future use by GetRankedJobSeekers
+				// This ensures scores are available without recalculation
+				if job.MatchScores == nil {
+					job.MatchScores = make(map[string]float64)
+				}
+				job.MatchScores[app.JobSeekerID.Hex()] = score
 			}
 		}
 
@@ -214,9 +221,12 @@ func (j *JobApplicationController) GetApplicants(c *gin.Context) {
 		return applicants[i].AppliedAt > applicants[j].AppliedAt
 	})
 
-	// If fitment scores exist, allow sorting by score DESC
-	// For now, we'll keep the default sort by appliedAt
-	// Frontend can implement client-side sorting if needed
+	// Store updated match scores back to job (async, non-blocking)
+	if job.MatchScores != nil && len(job.MatchScores) > 0 {
+		go func() {
+			_ = j.JobService.SetMatchScores(context.Background(), jobOID, job.MatchScores)
+		}()
+	}
 
 	utils.JSON(c, http.StatusOK, gin.H{
 		"jobId":     jobID,
