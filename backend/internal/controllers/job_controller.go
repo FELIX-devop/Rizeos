@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -335,23 +336,53 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 	}
 
 	var ranked []rankedSeeker
+	updatedScores := make(map[string]float64) // Track scores to store back in job
+	
 	for _, seeker := range seekers {
-		// CRITICAL: Use ALREADY STORED fitment score from job.MatchScores
-		// DO NOT recalculate - use the score that was calculated when candidate applied
 		seekerIDHex := seeker.ID.Hex()
 		var score float64
 		
-		// Check if score exists in job's stored match_scores
+		// STEP 1: Try to use ALREADY STORED fitment score from job.MatchScores
 		if job.MatchScores != nil {
-			if storedScore, exists := job.MatchScores[seekerIDHex]; exists {
+			if storedScore, exists := job.MatchScores[seekerIDHex]; exists && storedScore > 0 {
+				// Use stored score if it exists and is valid
 				score = storedScore
-			} else {
-				// Score not found in stored data - use 0 as fallback
-				score = 0.0
+			}
+		}
+		
+		// STEP 2: If no stored score found, calculate it (same logic as GetApplicants)
+		// This ensures scores are available even if not previously stored
+		if score == 0 {
+			candidateBio := seeker.Bio
+			if seeker.Summary != "" {
+				candidateBio = seeker.Summary
+			}
+			if candidateBio == "" {
+				candidateBio = seeker.Name
+			}
+
+			// Calculate fitment score (same as GetApplicants endpoint)
+			jobDesc := strings.TrimSpace(job.Description)
+			candidateBioTrimmed := strings.TrimSpace(candidateBio)
+			
+			if jobDesc != "" && candidateBioTrimmed != "" && j.AIService != nil {
+				calculatedScore, err := j.AIService.MatchScoreWithSkills(ctx, jobDesc, candidateBioTrimmed, job.Skills, seeker.Skills)
+				if err == nil {
+					// Clamp score to 0-100
+					if calculatedScore < 0 {
+						calculatedScore = 0
+					}
+					if calculatedScore > 100 {
+						calculatedScore = 100
+					}
+					score = calculatedScore
+					// Store calculated score for future use
+					updatedScores[seekerIDHex] = score
+				}
 			}
 		} else {
-			// No match_scores stored for this job - use 0 as fallback
-			score = 0.0
+			// Store existing score in update map to preserve it
+			updatedScores[seekerIDHex] = score
 		}
 
 		// Ensure score is within valid range (0-100)
@@ -367,9 +398,24 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 			Name:         seeker.Name,
 			Email:        seeker.Email,
 			Skills:       seeker.Skills,
-			FitmentScore: score, // Use stored score (0 if not found)
+			FitmentScore: score,
 			IsPremium:    seeker.IsPremium,
 		})
+	}
+	
+	// Store calculated scores back to job for future use (async, don't block response)
+	if len(updatedScores) > 0 {
+		go func() {
+			// Merge with existing scores
+			if job.MatchScores == nil {
+				job.MatchScores = make(map[string]float64)
+			}
+			for k, v := range updatedScores {
+				job.MatchScores[k] = v
+			}
+			// Update job with new scores (non-blocking)
+			_ = j.JobService.SetMatchScores(context.Background(), jobOID, job.MatchScores)
+		}()
 	}
 
 	// Sort by fitment score descending (efficient sort)
