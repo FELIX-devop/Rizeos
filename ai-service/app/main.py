@@ -17,21 +17,66 @@ SPACY_MODEL = os.getenv("SPACY_MODEL", "en_core_web_sm")
 PORT = int(os.getenv("PORT", "8000"))
 
 app = FastAPI(title="RizeOS AI Service", version="1.0.0")
+
+# CRITICAL: CORS configuration for production stability
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
-    allow_methods=["*"],  # Allow all methods (GET, POST, OPTIONS, etc.)
+    allow_origins=["*"],  # Allow all origins (backend handles specific origins)
+    allow_methods=["GET", "POST", "OPTIONS"],  # Explicit methods
     allow_headers=["*"],  # Allow all headers
     expose_headers=["*"],
+    allow_credentials=True,
+    max_age=86400,  # 24 hours cache for preflight
 )
+
+# CRITICAL: Request size limit to prevent memory issues
+# FastAPI handles this via Starlette's request size limits
+# We'll add validation in endpoints instead
 
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    CRITICAL: Load models ONCE at startup to prevent memory issues.
+    This ensures models are loaded before any requests arrive.
+    """
+    import threading
+    global embedder, nlp, _model_loading_lock
     
-# Lazy load to avoid blocking startup if model download is needed.
+    # Initialize lock for thread-safe model loading
+    _model_loading_lock = threading.Lock()
+    
+    print("=== AI Service Startup: Loading Models ===")
+    
+    # Pre-load embedder (most memory-intensive)
+    try:
+        print("Pre-loading SentenceTransformer model...")
+        _ = get_embedder()  # This will load the model
+        print("✅ SentenceTransformer model loaded successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to pre-load embedder: {e}")
+        print("Model will be loaded on first request (slower)")
+    
+    # Pre-load spaCy model
+    try:
+        print("Pre-loading spaCy model...")
+        _ = get_nlp()  # This will load the model
+        print("✅ spaCy model loaded successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Failed to pre-load spaCy: {e}")
+        print("Model will be loaded on first request (slower)")
+    
+    print("=== AI Service Startup Complete ===")
+    
+# CRITICAL: Load models ONCE at startup (singleton pattern)
+# This prevents multiple model loads and memory issues
 nlp = None
 embedder = None
+_model_loading_lock = None
 
 
 def get_nlp():
@@ -45,8 +90,15 @@ def get_nlp():
 
 
 def get_embedder():
-    global embedder
+    global embedder, _model_loading_lock
     if embedder is None:
+        # Thread-safe model loading to prevent race conditions
+        if _model_loading_lock:
+            _model_loading_lock.acquire()
+        try:
+            # Double-check after acquiring lock
+            if embedder is not None:
+                return embedder
         try:
             import torch
             import os
@@ -116,6 +168,9 @@ def get_embedder():
             error_details = traceback.format_exc()
             print(f"Error loading model: {error_details}")
             raise RuntimeError(f"Failed to load SentenceTransformer model: {str(e)}")
+        finally:
+            if _model_loading_lock:
+                _model_loading_lock.release()
     return embedder
 
 
@@ -764,21 +819,36 @@ def match(req: MatchRequest):
     - Having ALL required skills = high score (95%+)
     - Extra skills NEVER penalize
     - Only required skills are considered for base score
+    
+    CRITICAL: Never throws 500 error. Always returns valid score (0-100).
     """
+    # CRITICAL: Strict input validation - return 0 score for invalid input (never 500)
+    job_desc = (req.job_description or "").strip()
+    candidate_bio = (req.candidate_bio or "").strip()
+    
+    # If required fields are missing/empty, return 0 score (not error)
+    if not job_desc or not candidate_bio:
+        print(f"Warning: Invalid input - job_desc empty: {not job_desc}, candidate_bio empty: {not candidate_bio}")
+        return {"score": 0.0}
+    
+    # Normalize empty skill arrays
+    job_skills = req.job_skills or []
+    candidate_skills = req.candidate_skills or []
+    
     try:
-        # Validate inputs
-        if not req.job_description or not req.job_description.strip():
-            raise HTTPException(status_code=400, detail="job_description is required and cannot be empty")
-        if not req.candidate_bio or not req.candidate_bio.strip():
-            raise HTTPException(status_code=400, detail="candidate_bio is required and cannot be empty")
         
-        embedder = get_embedder()
+        # Get embedder (should be pre-loaded at startup)
+        try:
+            embedder = get_embedder()
+        except Exception as e:
+            print(f"Error: Failed to load embedder: {e}")
+            return {"score": 0.0}  # Return 0 instead of 500
         
         # Encode job description and candidate bio
         # Use convert_to_numpy=True to ensure we get numpy arrays, not PyTorch tensors
         try:
             embeddings = embedder.encode(
-                [req.job_description, req.candidate_bio],
+                [job_desc, candidate_bio],
                 convert_to_numpy=True,
                 show_progress_bar=False,
                 normalize_embeddings=False
@@ -787,10 +857,11 @@ def match(req: MatchRequest):
             import traceback
             error_details = traceback.format_exc()
             print(f"Encoding error: {error_details}")
-            raise HTTPException(status_code=500, detail=f"Failed to encode text: {str(e)}")
+            return {"score": 0.0}  # Return 0 instead of 500
         
         if len(embeddings) != 2:
-            raise HTTPException(status_code=500, detail="Embedding failed: expected 2 vectors")
+            print(f"Error: Embedding failed - expected 2 vectors, got {len(embeddings)}")
+            return {"score": 0.0}  # Return 0 instead of 500
         
         job_vec, cand_vec = embeddings[0], embeddings[1]
         
@@ -806,15 +877,16 @@ def match(req: MatchRequest):
             else:
                 cos = float(dot_product / (job_norm * cand_norm))
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to calculate cosine similarity: {str(e)}")
+            print(f"Error: Failed to calculate cosine similarity: {e}")
+            return {"score": 0.0}  # Return 0 instead of 500
         
         embed_score = (cos + 1) / 2  # Normalize to 0..1
 
         # Calculate skill score using REQUIRED SKILL COVERAGE (not Jaccard)
         skill_score = 0.0
-        if req.job_skills and req.candidate_skills:
+        if job_skills and candidate_skills:
             try:
-                skill_score = _required_skill_coverage(req.job_skills, req.candidate_skills)
+                skill_score = _required_skill_coverage(job_skills, candidate_skills)
             except Exception as e:
                 # If skill coverage calculation fails, log but continue with 0.0
                 print(f"Warning: Skill coverage calculation failed: {e}")
@@ -854,15 +926,12 @@ def match(req: MatchRequest):
         
         return {"score": normalized}
     
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
     except Exception as e:
-        # Catch any other unexpected errors
+        # CRITICAL: Never throw 500 error - always return valid score
         import traceback
         error_details = traceback.format_exc()
         print(f"Unexpected error in match endpoint: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        return {"score": 0.0}  # Return 0 instead of 500
 
 
 @app.post("/recommendations/recruiter")

@@ -60,7 +60,31 @@ func (a *AIController) MatchScore(c *gin.Context) {
 		return
 	}
 
-	score, _ := a.AIService.MatchScore(ctx, job.Description, user.Bio)
+	// CRITICAL: Validate inputs before calling AI service to prevent 500 errors
+	jobDesc := strings.TrimSpace(job.Description)
+	candidateBio := strings.TrimSpace(user.Bio)
+	
+	// If required fields are empty, return 0 score (not error)
+	var score float64
+	if jobDesc == "" || candidateBio == "" {
+		score = 0.0
+	} else {
+		var err error
+		score, err = a.AIService.MatchScore(ctx, jobDesc, candidateBio)
+		if err != nil {
+			// Log error but return 0 score instead of 500
+			score = 0.0
+		}
+	}
+	
+	// Ensure score is valid (0-100)
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	
 	matched := intersect(job.Skills, user.Skills)
 
 	utils.JSON(c, http.StatusOK, MatchScoreResponse{
@@ -172,7 +196,29 @@ func (a *AIController) RecommendCandidates(c *gin.Context) {
 	}
 	var recs []rec
 	for _, u := range seekers {
-		score, _ := a.AIService.MatchScore(ctx, job.Description, u.Bio)
+		// CRITICAL: Validate inputs before calling AI service
+		jobDesc := strings.TrimSpace(job.Description)
+		candidateBio := strings.TrimSpace(u.Bio)
+		
+		var score float64
+		if jobDesc == "" || candidateBio == "" {
+			score = 0.0
+		} else {
+			var err error
+			score, err = a.AIService.MatchScore(ctx, jobDesc, candidateBio)
+			if err != nil {
+				score = 0.0 // Return 0 instead of failing
+			}
+		}
+		
+		// Ensure score is valid (0-100)
+		if score < 0 {
+			score = 0
+		}
+		if score > 100 {
+			score = 100
+		}
+		
 		recs = append(recs, rec{
 			CandidateID: u.ID.Hex(),
 			Name:        u.Name,

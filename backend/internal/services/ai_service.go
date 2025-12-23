@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 // AIService communicates with the FastAPI AI microservice.
@@ -17,7 +18,9 @@ type AIService struct {
 func NewAIService(baseURL string) *AIService {
 	return &AIService{
 		BaseURL: baseURL,
-		Client:  &http.Client{},
+		Client: &http.Client{
+			Timeout: 30 * time.Second, // CRITICAL: Add timeout to prevent hanging requests
+		},
 	}
 }
 

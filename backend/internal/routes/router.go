@@ -50,13 +50,31 @@ func SetupRouter(cfg config.Config, db *mongo.Database) *gin.Engine {
 // SetupRouterWithDeps allows injecting in-memory services for tests.
 func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	router := gin.Default()
+	
+	// CRITICAL: CORS middleware MUST be first to handle OPTIONS requests properly
 	corsCfg := cors.DefaultConfig()
 	if cfg.AllowedOriginsCSV == "*" {
 		corsCfg.AllowAllOrigins = true
 	} else {
-		corsCfg.AllowOrigins = strings.Split(cfg.AllowedOriginsCSV, ",")
+		// Normalize origins (remove trailing slashes, trim spaces)
+		origins := strings.Split(cfg.AllowedOriginsCSV, ",")
+		normalized := make([]string, 0, len(origins))
+		for _, origin := range origins {
+			trimmed := strings.TrimSpace(origin)
+			// Remove trailing slash for consistency
+			trimmed = strings.TrimSuffix(trimmed, "/")
+			if trimmed != "" {
+				normalized = append(normalized, trimmed)
+			}
+		}
+		corsCfg.AllowOrigins = normalized
 	}
-	corsCfg.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+	corsCfg.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "X-Requested-With"}
+	corsCfg.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
+	corsCfg.AllowCredentials = true
+	corsCfg.MaxAge = 86400 // 24 hours
+	
+	// CRITICAL: Add CORS middleware FIRST (before any routes)
 	router.Use(cors.New(corsCfg))
 
 	authCtrl := &controllers.AuthController{UserService: deps.UserSvc, Cfg: cfg}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -345,11 +346,20 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 			candidateBio = seeker.Name // Fallback to name if no bio/summary
 		}
 
-		// Calculate match score with skills
-		score, err := j.AIService.MatchScoreWithSkills(ctx, job.Description, candidateBio, job.Skills, seeker.Skills)
-		if err != nil {
-			// If AI service fails, skip this seeker or use 0
+		// CRITICAL: Validate inputs before calling AI service to prevent 500 errors
+		jobDesc := strings.TrimSpace(job.Description)
+		candidateBioTrimmed := strings.TrimSpace(candidateBio)
+		
+		var score float64
+		if jobDesc == "" || candidateBioTrimmed == "" {
 			score = 0.0
+		} else {
+			var err error
+			score, err = j.AIService.MatchScoreWithSkills(ctx, jobDesc, candidateBioTrimmed, job.Skills, seeker.Skills)
+			if err != nil {
+				// If AI service fails, return 0 score instead of error
+				score = 0.0
+			}
 		}
 
 		// Clamp score to 0-100 (AI service already returns percentage, no multiplication needed)
