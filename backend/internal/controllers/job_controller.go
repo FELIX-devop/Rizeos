@@ -443,3 +443,95 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 
 	utils.JSON(c, http.StatusOK, response)
 }
+
+// GetRecruiterJobRanking returns job seekers ranked by rule-based skill match score.
+// This is SEPARATE from AI-based fitment scores and uses simple skill overlap calculation.
+// DO NOT modify AI service or existing fitment score logic.
+func (j *JobController) GetRecruiterJobRanking(c *gin.Context) {
+	jobID := c.Param("jobId")
+	if jobID == "" {
+		utils.JSONError(c, http.StatusBadRequest, "missing job id")
+		return
+	}
+
+	jobOID, err := primitive.ObjectIDFromHex(jobID)
+	if err != nil {
+		utils.JSONError(c, http.StatusBadRequest, "invalid job id")
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+	recruiterOID, _ := primitive.ObjectIDFromHex(userID.(string))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Verify job exists and recruiter owns it
+	job, err := j.JobService.FindByID(ctx, jobOID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			utils.JSONError(c, http.StatusNotFound, "job not found")
+			return
+		}
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if job.RecruiterID != recruiterOID {
+		utils.JSONError(c, http.StatusForbidden, "you do not own this job")
+		return
+	}
+
+	// Fetch all job seekers
+	seekers, err := j.UserService.Search(ctx, models.RoleSeeker, "", nil)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, "failed to fetch job seekers: "+err.Error())
+		return
+	}
+
+	// Rule-based ranking using skill overlap (NO AI calls)
+	type rankedSeeker struct {
+		UserID            string   `json:"userId"`
+		Name              string   `json:"name"`
+		Email             string   `json:"email"`
+		Skills            []string `json:"skills"`
+		RecruiterRankScore float64 `json:"recruiterRankScore"`
+		IsPremium         bool     `json:"isPremium"`
+	}
+
+	var ranked []rankedSeeker
+	requiredSkills := job.Skills
+
+	// Calculate rule-based score for each seeker
+	for _, seeker := range seekers {
+		// Calculate skill overlap score (rule-based, deterministic)
+		score := utils.CalculateRecruiterRankScore(requiredSkills, seeker.Skills)
+
+		// Only include seekers with score > 0
+		if score <= 0 {
+			continue
+		}
+
+		ranked = append(ranked, rankedSeeker{
+			UserID:            seeker.ID.Hex(),
+			Name:              seeker.Name,
+			Email:             seeker.Email,
+			Skills:            seeker.Skills,
+			RecruiterRankScore: score,
+			IsPremium:         seeker.IsPremium,
+		})
+	}
+
+	// Sort by recruiterRankScore descending (highest first)
+	sort.Slice(ranked, func(i, j int) bool {
+		return ranked[i].RecruiterRankScore > ranked[j].RecruiterRankScore
+	})
+
+	response := gin.H{
+		"jobId":    jobID,
+		"jobTitle": job.Title,
+		"results":  ranked,
+	}
+
+	utils.JSON(c, http.StatusOK, response)
+}

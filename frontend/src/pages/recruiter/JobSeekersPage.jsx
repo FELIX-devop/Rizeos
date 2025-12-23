@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { listUsers, listJobs, getRankedJobSeekers, getJobProfilePublic } from '../../services/api.js';
+import { listUsers, listJobs, getRecruiterJobRanking, getJobProfilePublic } from '../../services/api.js';
 import RecruiterSeekerProfile from '../../components/RecruiterSeekerProfile.jsx';
 import PremiumName from '../../components/PremiumName.jsx';
 import { getScoreColorClass, getScoreProps } from '../../utils/scoreColor.js';
@@ -65,7 +65,7 @@ export default function JobSeekersPage() {
   };
 
   // Load ranked job seekers for selected job
-  // Backend ONLY returns seekers with stored fitment scores (no recalculation)
+  // Uses rule-based skill match score (NO AI calls, deterministic, stable)
   const loadRankedSeekers = async (jobId) => {
     if (!jobId) {
       loadSeekers();
@@ -75,20 +75,20 @@ export default function JobSeekersPage() {
 
     setLoading(true);
     try {
-      // Fetch ranked seekers from backend
-      // Backend returns ONLY seekers with stored fitment scores, already sorted DESC
-      const data = await getRankedJobSeekers(token, jobId);
+      // Fetch ranked seekers using rule-based endpoint (skill overlap only)
+      // This is SEPARATE from AI fitment scores - stable and deterministic
+      const data = await getRecruiterJobRanking(token, jobId);
       setRankedData(data);
       
-      // Backend already filters and sorts by fitment score DESC
-      // Simply map the response to our format
+      // Backend returns seekers sorted by recruiterRankScore DESC
+      // Map response to our format
       const rankedSeekers = (data.results || []).map(r => {
-        const seekerId = r.jobSeekerId || r.id || r._id;
-        // Backend guarantees fitmentScore exists and is > 0 (NO fallback 0)
-        const fitmentScore = r.fitmentScore;
+        const seekerId = r.userId || r.jobSeekerId || r.id || r._id;
+        // Backend guarantees recruiterRankScore exists and is > 0
+        const recruiterRankScore = r.recruiterRankScore;
         
         // Ensure score is valid (backend should already validate, but double-check)
-        const validScore = Math.max(0, Math.min(100, fitmentScore));
+        const validScore = Math.max(0, Math.min(100, recruiterRankScore));
         
         return {
           id: seekerId,
@@ -96,12 +96,12 @@ export default function JobSeekersPage() {
           name: r.name,
           email: r.email,
           skills: r.skills || [],
-          fitmentScore: validScore, // Use score directly from backend
+          fitmentScore: validScore, // Use recruiterRankScore as fitmentScore for display
           is_premium: r.isPremium || false,
         };
       });
       
-      // Backend already sorts by fitmentScore DESC, but ensure frontend maintains order
+      // Backend already sorts by recruiterRankScore DESC, but ensure frontend maintains order
       setSeekers(rankedSeekers);
     } catch (err) {
       console.error('Failed to load ranked seekers', err);

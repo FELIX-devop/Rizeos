@@ -144,6 +144,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 
 		// Recruiter job ranking
 		api.GET("/recruiter/jobs/:jobId/ranked-jobseekers", middleware.RecruiterOnly(), jobCtrl.GetRankedJobSeekers)
+		api.GET("/recruiter/job-ranking/:jobId", middleware.RecruiterOnly(), jobCtrl.GetRecruiterJobRanking)
 
 		// Recruiter analytics
 		api.GET("/recruiter/analytics/skills", middleware.RecruiterOnly(), recruiterCtrl.GetSkillsAnalytics)

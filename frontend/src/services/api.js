@@ -113,6 +113,12 @@ export const getRankedJobSeekers = async (token, jobId) => {
   return data.data || data;
 };
 
+// Rule-based recruiter ranking (skill overlap only, no AI calls)
+export const getRecruiterJobRanking = async (token, jobId) => {
+  const { data } = await client.get(`/recruiter/job-ranking/${jobId}`, { headers: authHeaders(token) });
+  return data.data || data;
+};
+
 export const listUsers = async (token, params = {}) => {
   try {
     const { data } = await client.get('/users', { params, headers: authHeaders(token) });
