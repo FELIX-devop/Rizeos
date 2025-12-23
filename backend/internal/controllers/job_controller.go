@@ -324,8 +324,8 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 		return
 	}
 
-	// Fetch fitment scores from stored job.MatchScores ONLY
-	// DO NOT recalculate - only use already-computed scores
+	// Use SAME service as Job Seeker dashboard: AIService.MatchScoreWithSkills
+	// This ensures consistency with Job Seeker flow
 	type rankedSeeker struct {
 		JobSeekerID  string   `json:"jobSeekerId"`
 		Name         string   `json:"name"`
@@ -336,33 +336,63 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 	}
 
 	var ranked []rankedSeeker
+	jobDesc := strings.TrimSpace(job.Description)
+	
+	// If job description is empty, return empty list
+	if jobDesc == "" {
+		utils.JSON(c, http.StatusOK, gin.H{
+			"jobId":    jobID,
+			"jobTitle": job.Title,
+			"results":  []rankedSeeker{},
+		})
+		return
+	}
 
-	// Only include seekers with stored fitment scores
+	// For each seeker, calculate fitment score using SAME service as Job Seeker
 	for _, seeker := range seekers {
 		seekerIDHex := seeker.ID.Hex()
 		
-		// CRITICAL: Only use stored scores from job.MatchScores
-		// If no stored score exists, skip this seeker
-		if job.MatchScores == nil {
-			continue // No scores stored for this job
+		// Prepare candidate bio (same logic as GetApplicants)
+		candidateBio := seeker.Bio
+		if seeker.Summary != "" {
+			candidateBio = seeker.Summary
+		}
+		if candidateBio == "" {
+			candidateBio = seeker.Name
+		}
+		candidateBioTrimmed := strings.TrimSpace(candidateBio)
+		
+		// Skip if candidate bio is empty
+		if candidateBioTrimmed == "" {
+			continue
 		}
 		
-		storedScore, exists := job.MatchScores[seekerIDHex]
-		if !exists {
-			continue // No score for this seeker, skip
-		}
-		
-		// Validate score is within valid range (0-100)
-		if storedScore < 0 {
-			storedScore = 0
-		}
-		if storedScore > 100 {
-			storedScore = 100
+		// CRITICAL: Use SAME service as Job Seeker dashboard
+		// AIService.MatchScoreWithSkills() - same as used in GetApplicants
+		var score float64
+		if j.AIService != nil {
+			calculatedScore, err := j.AIService.MatchScoreWithSkills(ctx, jobDesc, candidateBioTrimmed, job.Skills, seeker.Skills)
+			if err != nil {
+				// If AI service fails, skip this seeker (no default 0)
+				continue
+			}
+			// Clamp score to 0-100
+			if calculatedScore < 0 {
+				calculatedScore = 0
+			}
+			if calculatedScore > 100 {
+				calculatedScore = 100
+			}
+			score = calculatedScore
+		} else {
+			// If AI service not available, skip this seeker
+			continue
 		}
 		
 		// Only include seekers with valid scores (> 0)
-		if storedScore <= 0 {
-			continue // Skip zero scores
+		// NO DEFAULT 0 - if score is 0, skip user
+		if score <= 0 {
+			continue
 		}
 
 		ranked = append(ranked, rankedSeeker{
@@ -370,7 +400,7 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 			Name:         seeker.Name,
 			Email:        seeker.Email,
 			Skills:       seeker.Skills,
-			FitmentScore: storedScore, // Use stored score only
+			FitmentScore: score,
 			IsPremium:    seeker.IsPremium,
 		})
 	}
