@@ -65,6 +65,7 @@ export default function JobSeekersPage() {
   };
 
   // Load ranked job seekers for selected job
+  // Backend ONLY returns seekers with stored fitment scores (no recalculation)
   const loadRankedSeekers = async (jobId) => {
     if (!jobId) {
       loadSeekers();
@@ -74,53 +75,19 @@ export default function JobSeekersPage() {
 
     setLoading(true);
     try {
-      // Step 1: Fetch job data to access stored match_scores
-      let jobData = null;
-      try {
-        jobData = await getJobProfilePublic(token, jobId);
-        setSelectedJobData(jobData);
-      } catch (err) {
-        console.warn('Could not fetch job data for match_scores:', err);
-      }
-
-      // Step 2: Fetch ranked seekers from backend
+      // Fetch ranked seekers from backend
+      // Backend returns ONLY seekers with stored fitment scores, already sorted DESC
       const data = await getRankedJobSeekers(token, jobId);
       setRankedData(data);
       
-      // Step 3: Convert and enrich with fitment scores from multiple possible locations
+      // Backend already filters and sorts by fitment score DESC
+      // Simply map the response to our format
       const rankedSeekers = (data.results || []).map(r => {
         const seekerId = r.jobSeekerId || r.id || r._id;
+        const fitmentScore = r.fitmentScore || 0;
         
-        // CRITICAL: Try multiple possible locations for fitment score
-        let fitmentScore = 0;
-        
-        // Location 1: Direct from backend response (primary)
-        if (r.fitmentScore !== null && r.fitmentScore !== undefined) {
-          fitmentScore = r.fitmentScore;
-        }
-        // Location 2: From job.match_scores[seekerId] (if job data available)
-        else if (jobData && jobData.match_scores && seekerId) {
-          const storedScore = jobData.match_scores[seekerId];
-          if (storedScore !== null && storedScore !== undefined) {
-            fitmentScore = storedScore;
-          }
-        }
-        // Location 3: From seeker object properties (if available)
-        else if (r.jobFitmentScores && r.jobFitmentScores[jobId]) {
-          fitmentScore = r.jobFitmentScores[jobId];
-        }
-        else if (r.fitmentScores && r.fitmentScores[jobId]) {
-          fitmentScore = r.fitmentScores[jobId];
-        }
-        else if (r.fitmentScoreMap && r.fitmentScoreMap[jobId]) {
-          fitmentScore = r.fitmentScoreMap[jobId];
-        }
-        
-        // Ensure score is valid number (0-100)
-        if (typeof fitmentScore !== 'number' || isNaN(fitmentScore)) {
-          fitmentScore = 0;
-        }
-        fitmentScore = Math.max(0, Math.min(100, fitmentScore));
+        // Ensure score is valid (backend should already validate, but double-check)
+        const validScore = Math.max(0, Math.min(100, fitmentScore));
         
         return {
           id: seekerId,
@@ -128,26 +95,18 @@ export default function JobSeekersPage() {
           name: r.name,
           email: r.email,
           skills: r.skills || [],
-          displayFitmentScore: fitmentScore, // Derived field for sorting/display
-          fitmentScore: fitmentScore, // Keep for backward compatibility
+          fitmentScore: validScore, // Use score directly from backend
           is_premium: r.isPremium || false,
         };
       });
       
-      // CRITICAL: Sort by displayFitmentScore DESC (highest first)
-      // Stable, deterministic sorting
-      rankedSeekers.sort((a, b) => {
-        const scoreA = a.displayFitmentScore || 0;
-        const scoreB = b.displayFitmentScore || 0;
-        return scoreB - scoreA; // DESC order (highest first)
-      });
-      
+      // Backend already sorts by fitmentScore DESC, but ensure frontend maintains order
       setSeekers(rankedSeekers);
     } catch (err) {
       console.error('Failed to load ranked seekers', err);
       setSeekers([]);
       setRankedData(null);
-      setSelectedJobData(null);
+      // Non-blocking error - show empty state instead of breaking page
     } finally {
       setLoading(false);
     }
@@ -249,22 +208,18 @@ export default function JobSeekersPage() {
 
         {!loading && seekers.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-white/60">
-              {selectedJobId 
-                ? "No applicants found for this job yet." 
-                : "No seekers found. Try adjusting your search criteria."}
-            </p>
-          </div>
-        )}
-
-        {!loading && selectedJobId && seekers.length > 0 && seekers.every(s => {
-          const score = s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0;
-          return score === 0;
-        }) && (
-          <div className="text-center py-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-sm text-yellow-300">
-              ⓘ No matching applicants yet for this job. Scores will appear once candidates apply.
-            </p>
+            {selectedJobId ? (
+              <div className="bg-white/5 border border-white/10 rounded-lg p-6 max-w-md mx-auto">
+                <p className="text-white/80 font-medium mb-2">No candidates with fitment scores available for this job.</p>
+                <p className="text-sm text-white/60">
+                  Fitment scores will appear once candidates apply and their scores are calculated.
+                </p>
+              </div>
+            ) : (
+              <p className="text-white/60">
+                No seekers found. Try adjusting your search criteria.
+              </p>
+            )}
           </div>
         )}
 
@@ -292,10 +247,8 @@ export default function JobSeekersPage() {
               </thead>
               <tbody>
                 {seekers.map((s, index) => {
-                  // Get display score (use displayFitmentScore if available, fallback to fitmentScore)
-                  const score = s.displayFitmentScore !== undefined 
-                    ? s.displayFitmentScore 
-                    : (s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0);
+                  // Backend guarantees fitmentScore exists and is valid (0-100)
+                  const score = s.fitmentScore || 0;
                   
                   // Best Match badge: ONLY for rank #1 AND score >= 70
                   const isTopMatch = selectedJobId && index === 0 && score >= 70;
@@ -332,13 +285,10 @@ export default function JobSeekersPage() {
                       </td>
                       {selectedJobId && (
                         <td className="py-3 pr-4">
-                          {score > 0 ? (
-                            <span {...getScoreProps(score)}>
-                              {score.toFixed(1)}%
-                            </span>
-                          ) : (
-                            <span className="text-white/40">0%</span>
-                          )}
+                          {/* Backend guarantees score > 0, but show it anyway */}
+                          <span {...getScoreProps(score)}>
+                            {score.toFixed(1)}%
+                          </span>
                         </td>
                       )}
                     </tr>

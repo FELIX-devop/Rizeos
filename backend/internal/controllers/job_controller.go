@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -325,72 +324,45 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 		return
 	}
 
-	// Calculate fitment scores for each seeker
+	// Fetch fitment scores from stored job.MatchScores ONLY
+	// DO NOT recalculate - only use already-computed scores
 	type rankedSeeker struct {
-		JobSeekerID string   `json:"jobSeekerId"`
-		Name        string   `json:"name"`
-		Email       string   `json:"email"`
-		Skills      []string `json:"skills"`
-		FitmentScore float64 `json:"fitmentScore"`
-		IsPremium   bool     `json:"isPremium"`
+		JobSeekerID  string   `json:"jobSeekerId"`
+		Name         string   `json:"name"`
+		Email        string   `json:"email"`
+		Skills       []string `json:"skills"`
+		FitmentScore float64  `json:"fitmentScore"`
+		IsPremium    bool     `json:"isPremium"`
 	}
 
 	var ranked []rankedSeeker
-	updatedScores := make(map[string]float64) // Track scores to store back in job
-	
+
+	// Only include seekers with stored fitment scores
 	for _, seeker := range seekers {
 		seekerIDHex := seeker.ID.Hex()
-		var score float64
 		
-		// STEP 1: Try to use ALREADY STORED fitment score from job.MatchScores
-		if job.MatchScores != nil {
-			if storedScore, exists := job.MatchScores[seekerIDHex]; exists && storedScore > 0 {
-				// Use stored score if it exists and is valid
-				score = storedScore
-			}
+		// CRITICAL: Only use stored scores from job.MatchScores
+		// If no stored score exists, skip this seeker
+		if job.MatchScores == nil {
+			continue // No scores stored for this job
 		}
 		
-		// STEP 2: If no stored score found, calculate it (same logic as GetApplicants)
-		// This ensures scores are available even if not previously stored
-		if score == 0 {
-			candidateBio := seeker.Bio
-			if seeker.Summary != "" {
-				candidateBio = seeker.Summary
-			}
-			if candidateBio == "" {
-				candidateBio = seeker.Name
-			}
-
-			// Calculate fitment score (same as GetApplicants endpoint)
-			jobDesc := strings.TrimSpace(job.Description)
-			candidateBioTrimmed := strings.TrimSpace(candidateBio)
-			
-			if jobDesc != "" && candidateBioTrimmed != "" && j.AIService != nil {
-				calculatedScore, err := j.AIService.MatchScoreWithSkills(ctx, jobDesc, candidateBioTrimmed, job.Skills, seeker.Skills)
-				if err == nil {
-					// Clamp score to 0-100
-					if calculatedScore < 0 {
-						calculatedScore = 0
-					}
-					if calculatedScore > 100 {
-						calculatedScore = 100
-					}
-					score = calculatedScore
-					// Store calculated score for future use
-					updatedScores[seekerIDHex] = score
-				}
-			}
-		} else {
-			// Store existing score in update map to preserve it
-			updatedScores[seekerIDHex] = score
+		storedScore, exists := job.MatchScores[seekerIDHex]
+		if !exists {
+			continue // No score for this seeker, skip
 		}
-
-		// Ensure score is within valid range (0-100)
-		if score < 0 {
-			score = 0
+		
+		// Validate score is within valid range (0-100)
+		if storedScore < 0 {
+			storedScore = 0
 		}
-		if score > 100 {
-			score = 100
+		if storedScore > 100 {
+			storedScore = 100
+		}
+		
+		// Only include seekers with valid scores (> 0)
+		if storedScore <= 0 {
+			continue // Skip zero scores
 		}
 
 		ranked = append(ranked, rankedSeeker{
@@ -398,24 +370,9 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 			Name:         seeker.Name,
 			Email:        seeker.Email,
 			Skills:       seeker.Skills,
-			FitmentScore: score,
+			FitmentScore: storedScore, // Use stored score only
 			IsPremium:    seeker.IsPremium,
 		})
-	}
-	
-	// Store calculated scores back to job for future use (async, don't block response)
-	if len(updatedScores) > 0 {
-		go func() {
-			// Merge with existing scores
-			if job.MatchScores == nil {
-				job.MatchScores = make(map[string]float64)
-			}
-			for k, v := range updatedScores {
-				job.MatchScores[k] = v
-			}
-			// Update job with new scores (non-blocking)
-			_ = j.JobService.SetMatchScores(context.Background(), jobOID, job.MatchScores)
-		}()
 	}
 
 	// Sort by fitment score descending (efficient sort)
