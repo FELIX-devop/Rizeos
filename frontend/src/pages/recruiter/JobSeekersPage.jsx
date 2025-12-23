@@ -84,7 +84,8 @@ export default function JobSeekersPage() {
       // Simply map the response to our format
       const rankedSeekers = (data.results || []).map(r => {
         const seekerId = r.jobSeekerId || r.id || r._id;
-        const fitmentScore = r.fitmentScore || 0;
+        // Backend guarantees fitmentScore exists and is > 0 (NO fallback 0)
+        const fitmentScore = r.fitmentScore;
         
         // Ensure score is valid (backend should already validate, but double-check)
         const validScore = Math.max(0, Math.min(100, fitmentScore));
