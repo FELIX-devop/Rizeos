@@ -208,6 +208,17 @@ export default function JobSeekersPage() {
           </div>
         )}
 
+        {!loading && selectedJobId && seekers.length > 0 && seekers.every(s => {
+          const score = s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0;
+          return score === 0;
+        }) && (
+          <div className="text-center py-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-sm text-yellow-300">
+              ⓘ No matching applicants yet for this job. Scores will appear once candidates apply.
+            </p>
+          </div>
+        )}
+
         {!loading && seekers.length > 0 && (
           <div className="overflow-auto max-h-[70vh]">
             <table className="w-full text-sm">
@@ -232,7 +243,9 @@ export default function JobSeekersPage() {
               </thead>
               <tbody>
                 {seekers.map((s, index) => {
-                  const isTopMatch = selectedJobId && index === 0 && s.fitmentScore !== undefined;
+                  // Best Match badge: only show if score >= 70 and is rank #1
+                  const score = s.fitmentScore !== null && s.fitmentScore !== undefined ? s.fitmentScore : 0;
+                  const isTopMatch = selectedJobId && index === 0 && score >= 70;
                   return (
                     <tr
                       key={s.id || s._id}

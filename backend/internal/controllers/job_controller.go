@@ -337,32 +337,25 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 
 	var ranked []rankedSeeker
 	for _, seeker := range seekers {
-		// Use bio or summary for candidate bio
-		candidateBio := seeker.Bio
-		if seeker.Summary != "" {
-			candidateBio = seeker.Summary
-		}
-		if candidateBio == "" {
-			candidateBio = seeker.Name // Fallback to name if no bio/summary
-		}
-
-		// CRITICAL: Validate inputs before calling AI service to prevent 500 errors
-		jobDesc := strings.TrimSpace(job.Description)
-		candidateBioTrimmed := strings.TrimSpace(candidateBio)
-		
+		// CRITICAL: Use ALREADY STORED fitment score from job.MatchScores
+		// DO NOT recalculate - use the score that was calculated when candidate applied
+		seekerIDHex := seeker.ID.Hex()
 		var score float64
-		if jobDesc == "" || candidateBioTrimmed == "" {
-			score = 0.0
-		} else {
-			var err error
-			score, err = j.AIService.MatchScoreWithSkills(ctx, jobDesc, candidateBioTrimmed, job.Skills, seeker.Skills)
-			if err != nil {
-				// If AI service fails, return 0 score instead of error
+		
+		// Check if score exists in job's stored match_scores
+		if job.MatchScores != nil {
+			if storedScore, exists := job.MatchScores[seekerIDHex]; exists {
+				score = storedScore
+			} else {
+				// Score not found in stored data - use 0 as fallback
 				score = 0.0
 			}
+		} else {
+			// No match_scores stored for this job - use 0 as fallback
+			score = 0.0
 		}
 
-		// Clamp score to 0-100 (AI service already returns percentage, no multiplication needed)
+		// Ensure score is within valid range (0-100)
 		if score < 0 {
 			score = 0
 		}
@@ -371,11 +364,11 @@ func (j *JobController) GetRankedJobSeekers(c *gin.Context) {
 		}
 
 		ranked = append(ranked, rankedSeeker{
-			JobSeekerID:  seeker.ID.Hex(),
+			JobSeekerID:  seekerIDHex,
 			Name:         seeker.Name,
 			Email:        seeker.Email,
 			Skills:       seeker.Skills,
-			FitmentScore: score, // AI service already returns 0-100 percentage
+			FitmentScore: score, // Use stored score (0 if not found)
 			IsPremium:    seeker.IsPremium,
 		})
 	}
