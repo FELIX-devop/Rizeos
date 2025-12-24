@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { getRecruiterUnreadCount } from '../../services/api.js';
+import { getRecruiterUnreadCount, getRecruiterAnnouncements } from '../../services/api.js';
 
 /**
  * RecruiterDashboardLayout
@@ -14,6 +14,8 @@ export default function RecruiterDashboardLayout() {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
   const isOverview = location.pathname === '/dashboard/recruiter' || location.pathname === '/dashboard/recruiter/';
 
   useEffect(() => {
@@ -31,8 +33,87 @@ export default function RecruiterDashboardLayout() {
     return () => clearInterval(interval);
   }, [token]);
 
+  // Load announcements for recruiters
+  useEffect(() => {
+    const loadAnnouncements = async () => {
+      setLoadingAnnouncements(true);
+      try {
+        const data = await getRecruiterAnnouncements(token);
+        // Handle both array and object with data property
+        const annList = Array.isArray(data) ? data : (data?.data || []);
+        setAnnouncements(annList);
+      } catch (err) {
+        console.error('Failed to load announcements', err);
+        setAnnouncements([]);
+      } finally {
+        setLoadingAnnouncements(false);
+      }
+    };
+    if (token) {
+      loadAnnouncements();
+      // Refresh announcements every 5 minutes
+      const interval = setInterval(loadAnnouncements, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* Announcements Banner - Only visible for recruiters */}
+      {!loadingAnnouncements && announcements.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-blue-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
+              />
+            </svg>
+            <h3 className="text-lg font-semibold text-white">Announcements</h3>
+          </div>
+          <div className="space-y-2">
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id || announcement._id}
+                className="bg-white/5 rounded-lg p-3 border border-white/10"
+              >
+                <p className="text-white/90 mb-1">{announcement.message}</p>
+                <div className="flex items-center justify-between text-xs text-white/50">
+                  <span>From: {announcement.from_role || 'Admin'}</span>
+                  {announcement.created_at && (
+                    <span>{formatDate(announcement.created_at)}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

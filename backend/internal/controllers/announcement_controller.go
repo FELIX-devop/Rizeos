@@ -67,7 +67,7 @@ func (a *AnnouncementController) CreateAnnouncement(c *gin.Context) {
 	seekers, err := a.UserService.Search(ctx, models.RoleSeeker, "", nil)
 	if err == nil {
 		for _, seeker := range seekers {
-			// For job seekers, announcements are sent as messages with ToRole = "recruiter" 
+			// For job seekers, announcements are sent as messages with ToRole = "recruiter"
 			// but ToUserID = seeker.ID (this is a special case for announcements)
 			// Actually, we need to check the message model - it seems ToRole should match the recipient
 			// Let's use a special approach: send to seeker with ToRole matching their role
@@ -99,3 +99,17 @@ func (a *AnnouncementController) ListAnnouncements(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, announcements)
 }
 
+// ListRecruiterAnnouncements returns all announcements specifically for recruiters.
+// This endpoint ensures only recruiters can access announcements.
+func (a *AnnouncementController) ListRecruiterAnnouncements(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	announcements, err := a.AnnouncementService.List(ctx)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, announcements)
+}

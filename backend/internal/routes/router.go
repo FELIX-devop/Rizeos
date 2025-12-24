@@ -4,27 +4,28 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
 	"rizeos/backend/internal/config"
 	"rizeos/backend/internal/controllers"
 	"rizeos/backend/internal/middleware"
 	"rizeos/backend/internal/services"
 	"rizeos/backend/internal/utils"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Deps holds service dependencies for easier testing.
 type Deps struct {
-	UserSvc              *services.UserService
-	JobSvc               *services.JobService
-	PaymentSvc           *services.PaymentService
-	AISvc                *services.AIService
-	MessageSvc           *services.MessageService
-	AnnouncementSvc      *services.AnnouncementService
-	JobApplicationSvc    *services.JobApplicationService
-	UserCol              *mongo.Collection
-	JobCol               *mongo.Collection
+	UserSvc           *services.UserService
+	JobSvc            *services.JobService
+	PaymentSvc        *services.PaymentService
+	AISvc             *services.AIService
+	MessageSvc        *services.MessageService
+	AnnouncementSvc   *services.AnnouncementService
+	JobApplicationSvc *services.JobApplicationService
+	UserCol           *mongo.Collection
+	JobCol            *mongo.Collection
 }
 
 // DefaultDeps builds services from a mongo database.
@@ -32,13 +33,13 @@ func DefaultDeps(cfg config.Config, db *mongo.Database) Deps {
 	return Deps{
 		UserSvc:           services.NewUserService(db),
 		JobSvc:            services.NewJobService(db),
-		PaymentSvc:         services.NewPaymentService(db),
-		AISvc:              services.NewAIService(cfg.AIServiceURL),
-		MessageSvc:         services.NewMessageService(db),
-		AnnouncementSvc:     services.NewAnnouncementService(db),
-		JobApplicationSvc:   services.NewJobApplicationService(db),
-		UserCol:            db.Collection("users"),
-		JobCol:             db.Collection("jobs"),
+		PaymentSvc:        services.NewPaymentService(db),
+		AISvc:             services.NewAIService(cfg.AIServiceURL),
+		MessageSvc:        services.NewMessageService(db),
+		AnnouncementSvc:   services.NewAnnouncementService(db),
+		JobApplicationSvc: services.NewJobApplicationService(db),
+		UserCol:           db.Collection("users"),
+		JobCol:            db.Collection("jobs"),
 	}
 }
 
@@ -50,7 +51,7 @@ func SetupRouter(cfg config.Config, db *mongo.Database) *gin.Engine {
 // SetupRouterWithDeps allows injecting in-memory services for tests.
 func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	router := gin.Default()
-	
+
 	// CRITICAL: CORS middleware MUST be first to handle OPTIONS requests properly
 	corsCfg := cors.DefaultConfig()
 	if cfg.AllowedOriginsCSV == "*" {
@@ -73,7 +74,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	corsCfg.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
 	corsCfg.AllowCredentials = true
 	corsCfg.MaxAge = 86400 // 24 hours
-	
+
 	// CRITICAL: Add CORS middleware FIRST (before any routes)
 	router.Use(cors.New(corsCfg))
 
@@ -139,7 +140,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware(cfg))
 	{
-		api.GET("/users", userCtrl.List) // filtered user list (e.g., seekers)
+		api.GET("/users", userCtrl.List)                         // filtered user list (e.g., seekers)
 		api.GET("/users/:userId", userCtrl.GetUserProfilePublic) // public user profile (for job seekers viewing recruiters)
 
 		// Recruiter job ranking
@@ -159,16 +160,19 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 		// Messages: Recruiter inbox for seeker messages
 		api.GET("/messages/recruiter/inbox", middleware.RecruiterOnly(), messageCtrl.RecruiterInbox)
 		api.GET("/messages/recruiter/unread-count", middleware.RecruiterOnly(), messageCtrl.GetRecruiterUnreadCount)
-		
+
 		// Messages: Job seeker inbox
 		api.GET("/messages/seeker/inbox", middleware.SeekerOnly(), messageCtrl.SeekerInbox)
 		api.GET("/messages/seeker/unread-count", middleware.SeekerOnly(), messageCtrl.GetSeekerUnreadCount)
-		
+
 		api.PUT("/messages/:id/read", messageCtrl.MarkAsRead) // Shared endpoint for all roles
 
 		// Announcements: Available to recruiters and job seekers
 		api.GET("/announcements", announcementCtrl.ListAnnouncements)
-		
+
+		// Recruiter-only announcements
+		api.GET("/recruiter/announcements", middleware.RecruiterOnly(), announcementCtrl.ListRecruiterAnnouncements)
+
 		// Job seeker premium status
 		api.GET("/jobseeker/premium-status", middleware.SeekerOnly(), userCtrl.GetPremiumStatus)
 	}

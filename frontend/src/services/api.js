@@ -221,6 +221,12 @@ export const listAnnouncements = async (token) => {
   return data.data || data;
 };
 
+// Get announcements for recruiters only
+export const getRecruiterAnnouncements = async (token) => {
+  const { data } = await client.get('/recruiter/announcements', { headers: authHeaders(token) });
+  return data.data || data;
+};
+
 // Optional helper to call AI service directly for resume skill extraction.
 export const extractSkillsFromResume = async (base64Content) => {
   const aiBase = (import.meta.env.VITE_AI_URL || 'http://localhost:8000').replace(/\/+$/, ''); // Remove trailing slashes

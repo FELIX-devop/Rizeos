@@ -429,6 +429,29 @@ curl https://your-ai-service.railway.app/
 
 ---
 
+
+
+cd /Users/felixantony/Downloads/Riseos && git add -A && git commit -m "feat: Rule-based recruiter ranking (skill overlap only)
+
+BACKEND:
+- Added CalculateRecruiterRankScore utility (skill overlap calculation)
+- Created GET /api/recruiter/job-ranking/:jobId endpoint
+- Uses rule-based score (NO AI calls, deterministic, stable)
+- Separate from AI fitment scores (does not affect existing logic)
+
+FRONTEND:
+- Updated JobSeekersPage to use new rule-based endpoint
+- Changed display text from 'AI-generated' to 'Skill match score'
+- Maintains same UI/UX (color coding, ranking, badges)
+
+GUARANTEES:
+- Job Seeker dashboard unchanged
+- AI fitment score logic untouched
+- No extra AI calls
+- No memory/OOM issues
+- Ranking always works (deterministic)
+- Refresh/login safe" && git push
+
 ## 🚀 Production Recommendations
 
 ### Security
