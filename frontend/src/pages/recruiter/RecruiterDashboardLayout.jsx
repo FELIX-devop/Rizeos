@@ -12,11 +12,14 @@ import { getRecruiterUnreadCount, getRecruiterAnnouncements } from '../../servic
 export default function RecruiterDashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
   const isOverview = location.pathname === '/dashboard/recruiter' || location.pathname === '/dashboard/recruiter/';
+  
+  // Only show announcements for recruiters (not admin, not job seeker)
+  const isRecruiter = user?.role === 'recruiter';
 
   useEffect(() => {
     const loadUnreadCount = async () => {
@@ -33,14 +36,29 @@ export default function RecruiterDashboardLayout() {
     return () => clearInterval(interval);
   }, [token]);
 
-  // Load announcements for recruiters
+  // Load announcements for recruiters ONLY (not admin, not job seeker)
   useEffect(() => {
+    // Only load announcements if user is a recruiter
+    if (!isRecruiter || !token) {
+      setAnnouncements([]);
+      return;
+    }
+
     const loadAnnouncements = async () => {
       setLoadingAnnouncements(true);
       try {
         const data = await getRecruiterAnnouncements(token);
-        // Handle both array and object with data property
-        const annList = Array.isArray(data) ? data : (data?.data || []);
+        // Handle response format: backend returns {data: [...]} or array directly
+        let annList = [];
+        if (Array.isArray(data)) {
+          annList = data;
+        } else if (data?.data) {
+          // If data.data is an array, use it; if it's a single object, wrap it in array
+          annList = Array.isArray(data.data) ? data.data : [data.data];
+        } else if (data && typeof data === 'object') {
+          // Single announcement object (shouldn't happen but handle it)
+          annList = [data];
+        }
         setAnnouncements(annList);
       } catch (err) {
         console.error('Failed to load announcements', err);
@@ -49,13 +67,12 @@ export default function RecruiterDashboardLayout() {
         setLoadingAnnouncements(false);
       }
     };
-    if (token) {
-      loadAnnouncements();
-      // Refresh announcements every 5 minutes
-      const interval = setInterval(loadAnnouncements, 5 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [token]);
+    
+    loadAnnouncements();
+    // Refresh announcements every 5 minutes
+    const interval = setInterval(loadAnnouncements, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [token, isRecruiter]);
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -75,8 +92,8 @@ export default function RecruiterDashboardLayout() {
 
   return (
     <div className="space-y-4">
-      {/* Announcements Banner - Only visible for recruiters */}
-      {!loadingAnnouncements && announcements.length > 0 && (
+      {/* Announcements Banner - Only visible for recruiters (not admin, not job seeker) */}
+      {isRecruiter && !loadingAnnouncements && announcements.length > 0 && (
         <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
             <svg
