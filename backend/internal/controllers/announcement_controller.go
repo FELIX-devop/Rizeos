@@ -99,17 +99,54 @@ func (a *AnnouncementController) ListAnnouncements(c *gin.Context) {
 	utils.JSON(c, http.StatusOK, announcements)
 }
 
-// ListRecruiterAnnouncements returns all announcements specifically for recruiters.
-// This endpoint ensures only recruiters can access announcements.
-func (a *AnnouncementController) ListRecruiterAnnouncements(c *gin.Context) {
+// CreateRecruiterAnnouncement handles announcement creation by recruiters.
+// Recruiter announcements are only visible to other recruiters.
+func (a *AnnouncementController) CreateRecruiterAnnouncement(c *gin.Context) {
+	var req createAnnouncementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.JSONError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
 
-	announcements, err := a.AnnouncementService.List(ctx)
+	// Create announcement with recruiter role
+	announcement := models.Announcement{
+		FromRole: models.RoleRecruiter,
+		Message:  req.Message,
+	}
+
+	created, err := a.AnnouncementService.Create(ctx, announcement)
 	if err != nil {
 		utils.JSONError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.JSON(c, http.StatusOK, announcements)
+	utils.JSON(c, http.StatusCreated, created)
+}
+
+// ListRecruiterAnnouncements returns all announcements visible to recruiters.
+// This includes both admin announcements and recruiter announcements.
+// This endpoint ensures only recruiters can access announcements.
+func (a *AnnouncementController) ListRecruiterAnnouncements(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Get all announcements (both admin and recruiter)
+	allAnnouncements, err := a.AnnouncementService.List(ctx)
+	if err != nil {
+		utils.JSONError(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Filter to only include admin and recruiter announcements (exclude any other roles)
+	var recruiterAnnouncements []models.Announcement
+	for _, ann := range allAnnouncements {
+		if ann.FromRole == models.RoleAdmin || ann.FromRole == models.RoleRecruiter {
+			recruiterAnnouncements = append(recruiterAnnouncements, ann)
+		}
+	}
+
+	utils.JSON(c, http.StatusOK, recruiterAnnouncements)
 }

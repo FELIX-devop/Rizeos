@@ -172,6 +172,7 @@ func SetupRouterWithDeps(cfg config.Config, deps Deps) *gin.Engine {
 
 		// Recruiter-only announcements
 		api.GET("/recruiter/announcements", middleware.RecruiterOnly(), announcementCtrl.ListRecruiterAnnouncements)
+		api.POST("/recruiter/announcements", middleware.RecruiterOnly(), announcementCtrl.CreateRecruiterAnnouncement)
 
 		// Job seeker premium status
 		api.GET("/jobseeker/premium-status", middleware.SeekerOnly(), userCtrl.GetPremiumStatus)
